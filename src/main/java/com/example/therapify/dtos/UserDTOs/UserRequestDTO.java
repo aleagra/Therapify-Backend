@@ -23,25 +23,21 @@ public class UserRequestDTO {
     @Size(min = 6, max = 20, message = "La contraseña debe contener entre 6 y 20 caracteres")
     private String password;
 
-    @NotBlank(message = "El nombre de la empresa no puede estar vacío")
+
     private String companyName;
 
     @NotNull(message = "El tipo de usuario es obligatorio")
     private UserType userType;
 
-    @NotBlank(message = "El género no puede estar vacío")
     private String gender;
 
-    @NotBlank(message = "La dirección no puede estar vacía")
     private String address;
 
     @Size(max = 500, message = "La descripción no puede exceder los 500 caracteres")
     private String description;
 
-    @NotBlank(message = "El horario no puede estar vacío")
     private String schedule;
 
-    @NotBlank(message = "La disponibilidad no puede estar vacía")
     private String availability;
 
     public UserRequestDTO() {}

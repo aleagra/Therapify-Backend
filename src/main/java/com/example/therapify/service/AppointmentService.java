@@ -59,6 +59,48 @@ public class AppointmentService {
         return toDetailDTO(ap);
     }
 
+    public List<AppointmentListDTO> getMyAppointments() {
+
+        User user = userService.getAuthenticatedUser();
+
+        String role = user.getUserType().name();   // PACIENTE, DOCTOR, ADMIN
+
+        if (role.equals("ADMIN")) {
+            return appointmentRepository
+                    .findAll()
+                    .stream()
+                    .map(this::toListDTO)
+                    .toList();
+        }
+
+        // Para pacientes y doctores (o usuarios que sean ambos)
+        return appointmentRepository
+                .findByDoctorIdOrPatientId(user.getId(), user.getId())
+                .stream()
+                .map(this::toListDTO)
+                .toList();
+    }
+
+    public AppointmentDetailDTO updateAppointmentStatus(Long id, String statusStr) {
+        Appointment ap = appointmentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Turno no encontrado"));
+
+        Status status = Status.valueOf(statusStr);
+        ap.setStatus(status);
+        appointmentRepository.save(ap);
+
+        return toDetailDTO(ap);
+    }
+
+    public boolean deleteAppointment(Long id) {
+        Appointment ap = appointmentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Turno no encontrado"));
+
+        appointmentRepository.delete(ap);
+        return true;
+    }
+
+
     // -------------------------------------------------
     // GET appointments by doctor + date
     // (para mostrar horarios ocupados)
@@ -96,9 +138,21 @@ public class AppointmentService {
         AppointmentListDTO dto = new AppointmentListDTO();
 
         dto.setId(ap.getId());
+        dto.setDate(ap.getDate().toString());
         dto.setStartTime(ap.getStartTime().toString());
         dto.setEndTime(ap.getEndTime().toString());
-        dto.setPatientName(ap.getPatient().getFirstName());
+        dto.setStatus(ap.getStatus().name());
+        dto.setDoctorId(ap.getDoctor().getId());
+        dto.setPatientId(ap.getPatient().getId());
+        dto.setCreatedAt(ap.getCreatedAt().toString());
+
+        // Buscar usuario paciente para nombre completo
+        User patient = userService.findEntityById(ap.getPatient().getId());
+        dto.setPatientName(patient.getFirstName() + " " + patient.getLastName());
+
+        // Buscar usuario doctor para nombre completo
+        User doctor = userService.findEntityById(ap.getDoctor().getId());
+        dto.setDoctorName(doctor.getFirstName() + " " + doctor.getLastName());
 
         return dto;
     }

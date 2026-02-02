@@ -4,6 +4,7 @@ import java.time.LocalDate;
 public class ReviewListDTO {
 
     private Long id;
+    private Long patientId;
     private String comment;
     private Integer value;
     private LocalDate date;
@@ -45,6 +46,14 @@ public class ReviewListDTO {
 
     public String getPatientName() {
         return patientName;
+    }
+
+    public Long getPatientId() {
+        return patientId;
+    }
+
+    public void setPatientId(Long patientId) {
+        this.patientId = patientId;
     }
 
     public void setPatientName(String patientName) {

@@ -20,6 +20,14 @@ public class Review {
     @Column(nullable = false)
     private Integer value;
 
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setDate(LocalDateTime date) {
+        this.date = date;
+    }
+
     // Fecha de creación de la reseña
     @Column(nullable = false)
     private LocalDateTime date;

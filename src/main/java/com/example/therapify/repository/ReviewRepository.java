@@ -1,4 +1,5 @@
 package com.example.therapify.repository;
+import com.example.therapify.enums.Status;
 import com.example.therapify.model.Appointment;
 import com.example.therapify.model.Review;
 import com.example.therapify.model.User;
@@ -10,4 +11,6 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Review> findByPatientId(Long patientId);
     List<Review> findByDoctor(User doctor);
     List<Review> findByDoctorId(Long doctorId);
+
+
 }

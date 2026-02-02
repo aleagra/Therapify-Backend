@@ -1,11 +1,18 @@
 package com.example.therapify.dtos.UserDTOs;
-import com.example.therapify.enums.UserType;
+import java.util.List;
+import java.util.Map;
 
 public record UserDetailDTO(
         Long id,
-        String nombre,
-        String apellido,
+        String firstName,
+        String lastName,
         String email,
-        UserType tipoDeUsuario
-) {
-}
+        String userType,
+        String companyName,
+        String gender,
+        String address,
+        String description,
+        String specialty,
+        Map<String, Boolean> schedule,
+        Map<String, List<String>> availability
+) {}

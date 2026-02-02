@@ -1,7 +1,9 @@
 package com.example.therapify.controller;
+
 import com.example.therapify.dtos.UserDTOs.UserDetailDTO;
 import com.example.therapify.dtos.UserDTOs.UserRequestDTO;
 import com.example.therapify.enums.UserType;
+import com.example.therapify.model.User;
 import com.example.therapify.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,19 +11,21 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/usuarios")
+@CrossOrigin(origins = "http://localhost:4200")
 public class UserController {
 
     @Autowired
-    UserService userService;
+    private UserService userService;
 
-    public UserController(UserService userService) {
-        this.userService = userService;
-    }
+    // ==========================
+    // SOLO ADMIN
+    // ==========================
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
@@ -29,10 +33,15 @@ public class UserController {
         return userService.listarUsuarios();
     }
 
-    @GetMapping("/{id}")
-    public UserDetailDTO buscarPorId(@PathVariable Long id) {
-        return userService.buscarPorId(id);
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, String>> eliminar(@PathVariable Long id) {
+        return userService.eliminarUsuario(id);
     }
+
+    // ==========================
+    // PUBLICO / AUTENTICADO
+    // ==========================
 
     @PostMapping
     public ResponseEntity<UserDetailDTO> crear(
@@ -42,43 +51,57 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(creado);
     }
 
+    @GetMapping("/{id}")
+    public UserDetailDTO buscarPorId(@PathVariable Long id) {
+        return userService.buscarPorId(id);
+    }
+
     @PutMapping
-    public ResponseEntity<Map<String, String>> modificar(
-            @Valid @RequestBody UserRequestDTO req
+    public ResponseEntity<Map<String, Object>> modificarMiPerfil(
+            @RequestBody UserRequestDTO req
     ) {
         return userService.modificarMiUsuario(req);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public ResponseEntity<Map<String, String>> eliminar(@PathVariable Long id) {
-        return userService.eliminarUsuario(id);
+    // Endpoint opcional: obtener perfil propio
+    @GetMapping("/mi-perfil")
+    public UserDetailDTO miPerfil() {
+        User u = userService.getAuthenticatedUser();
+        return userService.buscarPorId(u.getId());
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    // ==========================
+    // BUSCAR POR ROL
+    // ==========================
+
     @GetMapping("/rol/{tipo}")
     public ResponseEntity<List<UserDetailDTO>> findByTipoDeUsuario(
             @PathVariable UserType tipo
     ) {
-        List<UserDetailDTO> usuarios = userService.findByUserType(String.valueOf(tipo));
-        return ResponseEntity.ok(usuarios);
+        return ResponseEntity.ok(
+                userService.findByUserType(tipo.name())
+        );
     }
 
+    // ==========================
+    // BUSQUEDAS POR NOMBRE / APELLIDO
+    // ==========================
+
     @GetMapping("/nombre/{nombre}")
-    public ResponseEntity<List<UserDetailDTO>> findByNombre(@PathVariable String nombre) {
-        List<UserDetailDTO> usuarios = userService.findByFirstName(nombre);
-        return ResponseEntity.ok(usuarios);
+    public ResponseEntity<List<UserDetailDTO>> findByNombre(
+            @PathVariable String nombre
+    ) {
+        return ResponseEntity.ok(
+                userService.findByFirstName(nombre)
+        );
     }
 
     @GetMapping("/apellido/{apellido}")
-    public ResponseEntity<List<UserDetailDTO>> findByApellido(@PathVariable String apellido) {
-        List<UserDetailDTO> usuarios = userService.findByLastName(apellido);
-        return ResponseEntity.ok(usuarios);
+    public ResponseEntity<List<UserDetailDTO>> findByApellido(
+            @PathVariable String apellido
+    ) {
+        return ResponseEntity.ok(
+                userService.findByLastName(apellido)
+        );
     }
-
-//    @GetMapping("/perfil")
-//    public ResponseEntity<UsuarioCompletoDto> obtenerPerfilCompleto() {
-//        return ResponseEntity.ok(userService.getUsuarioCompleto());
-//    }
 }

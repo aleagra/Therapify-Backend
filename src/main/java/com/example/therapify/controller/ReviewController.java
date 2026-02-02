@@ -26,13 +26,23 @@ public class ReviewController {
     // ------------------------------
     // POST: crear reseña
     // ------------------------------
-    @PreAuthorize("hasRole('PACIENTE')")
+    @PreAuthorize("hasAnyRole('PACIENTE','DOCTOR')")
     @PostMapping
     public ResponseEntity<ReviewDetailDTO> createReview(
             @Valid @RequestBody ReviewRequestDTO dto
     ) {
         ReviewDetailDTO saved = reviewService.createReview(dto);
         return new ResponseEntity<>(saved, HttpStatus.CREATED);
+    }
+
+    @PreAuthorize("hasAnyRole('PACIENTE','DOCTOR')")
+    @PutMapping("/{id}")
+    public ResponseEntity<ReviewDetailDTO> updateReview(
+            @PathVariable Long id,
+            @Valid @RequestBody ReviewRequestDTO dto
+    ) {
+        ReviewDetailDTO updated = reviewService.updateReview(id, dto);
+        return ResponseEntity.ok(updated);
     }
 
     // ------------------------------
@@ -49,17 +59,22 @@ public class ReviewController {
     // ------------------------------
     // GET: reseñas del paciente logueado
     // ------------------------------
-    @PreAuthorize("hasRole('PACIENTE')")
+    @PreAuthorize("hasAnyRole('PACIENTE','DOCTOR')")
     @GetMapping("/my")
     public ResponseEntity<List<ReviewListDTO>> getMyReviews() {
         List<ReviewListDTO> reviews = reviewService.getMyReviews();
         return ResponseEntity.ok(reviews);
     }
-
+    @GetMapping("/user/{userId}")
+    @PreAuthorize("hasAnyRole('ADMIN','PACIENTE','DOCTOR')")
+    public ResponseEntity<List<ReviewListDTO>> getReviewsByUser(@PathVariable Long userId) {
+        List<ReviewListDTO> reviews = reviewService.getReviewsByUser(userId);
+        return ResponseEntity.ok(reviews);
+    }
     // ------------------------------
     // DELETE: eliminar reseña (solo ADMIN)
     // ------------------------------
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('PACIENTE','DOCTOR','ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> deleteReview(
             @PathVariable Long id
