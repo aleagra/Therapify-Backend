@@ -4,7 +4,9 @@ import com.example.therapify.config.JwtService;
 import com.example.therapify.dtos.UserDTOs.UserDetailDTO;
 import com.example.therapify.dtos.UserDTOs.UserRequestDTO;
 import com.example.therapify.enums.UserType;
+import com.example.therapify.model.PasswordResetToken;
 import com.example.therapify.model.User;
+import com.example.therapify.repository.PasswordResetTokenRepository;
 import com.example.therapify.repository.UserRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,9 +23,11 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class UserService implements UserDetailsService {
@@ -31,13 +35,16 @@ public class UserService implements UserDetailsService {
     private final JwtService jwtService;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final ObjectMapper objectMapper = new ObjectMapper(); // para parsear JSON
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final PasswordResetTokenRepository tokenRepository;
+
 
     @Autowired
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder,JwtService jwtService) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder,JwtService jwtService,PasswordResetTokenRepository tokenRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.tokenRepository = tokenRepository;
     }
 
     // -------------------------
@@ -233,4 +240,39 @@ public class UserService implements UserDetailsService {
                 .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado"));
         return mapToDTO(u);
     }
+    public String createPasswordResetToken(User user) {
+
+        String token = UUID.randomUUID().toString();
+
+        PasswordResetToken resetToken =
+                new PasswordResetToken(
+                        token,
+                        user,
+                        LocalDateTime.now().plusMinutes(30)
+                );
+
+        tokenRepository.save(resetToken);
+
+        return token;
+    }
+
+    public boolean resetPassword(String token, String newPassword) {
+
+        PasswordResetToken prt =
+                tokenRepository.findByToken(token);
+
+        if (prt == null) return false;
+
+        if (prt.getExpiration().isBefore(LocalDateTime.now()))
+            return false;
+
+        User user = prt.getUser();
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        tokenRepository.delete(prt);
+
+        return true;
+    }
+
 }
