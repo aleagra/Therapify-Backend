@@ -105,5 +105,14 @@ public class UserController {
         );
     }
 
+    @GetMapping("/doctors/near")
+    public ResponseEntity<List<UserDetailDTO>> doctorsNear(
+            @RequestParam double lat,
+            @RequestParam double lng
+    ) {
+        return ResponseEntity.ok(
+                userService.findDoctorsNear(lat, lng)
+        );
+    }
 
 }

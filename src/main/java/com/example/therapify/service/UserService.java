@@ -1,5 +1,6 @@
 package com.example.therapify.service;
 
+import com.example.therapify.config.GeoUtils;
 import com.example.therapify.config.JwtService;
 import com.example.therapify.dtos.UserDTOs.UserDetailDTO;
 import com.example.therapify.dtos.UserDTOs.UserRequestDTO;
@@ -37,14 +38,16 @@ public class UserService implements UserDetailsService {
     private final PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final PasswordResetTokenRepository tokenRepository;
+    private final GeocodingService geocodingService;
 
 
     @Autowired
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder,JwtService jwtService,PasswordResetTokenRepository tokenRepository) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, PasswordResetTokenRepository tokenRepository, GeocodingService geocodingService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.tokenRepository = tokenRepository;
+        this.geocodingService = geocodingService;
     }
 
     // -------------------------
@@ -63,7 +66,17 @@ public class UserService implements UserDetailsService {
         u.setCompanyName(req.getCompanyName());
         u.setUserType(req.getUserType());
         u.setGender(req.getGender());
-        u.setAddress(req.getAddress());
+        if (req.getAddress() != null && !req.getAddress().isBlank()) {
+
+            u.setAddress(req.getAddress());
+
+            if (req.getUserType() == UserType.DOCTOR) {
+                double[] coords = geocodingService.getCoordinates(req.getAddress());
+                u.setLatitude(coords[0]);
+                u.setLongitude(coords[1]);
+            }
+        }
+
         u.setDescription(req.getDescription());
         u.setPassword(passwordEncoder.encode(req.getPassword()));
 
@@ -93,7 +106,10 @@ public class UserService implements UserDetailsService {
         }
 
         // availability solo si doctor
-        Map<String, List<String>> availabilityMap = u.getUserType() == UserType.DOCTOR ? u.getAvailabilityMap() : null;
+        Map<String, List<String>> availabilityMap =
+                u.getUserType() == UserType.DOCTOR
+                        ? u.getAvailabilityMap()
+                        : null;
 
         return new UserDetailDTO(
                 u.getId(),
@@ -104,8 +120,51 @@ public class UserService implements UserDetailsService {
                 u.getCompanyName(),
                 u.getGender(),
                 u.getAddress(),
+                u.getLatitude(),
+                u.getLongitude(),
+                null,
                 u.getDescription(),
-                null, // specialty: si la agregas en User lo tomás acá
+                null,
+                scheduleMap,
+                availabilityMap
+        );
+
+    }
+
+    private UserDetailDTO mapToDTOWithDistance(User u, double distance) {
+
+        Map<String, Boolean> scheduleMap = null;
+
+        if (u.getUserType() == UserType.DOCTOR && u.getSchedule() != null && !u.getSchedule().isBlank()) {
+            try {
+                scheduleMap = objectMapper.readValue(
+                        u.getSchedule(),
+                        new TypeReference<Map<String, Boolean>>() {}
+                );
+            } catch (Exception e) {
+                scheduleMap = null;
+            }
+        }
+
+        Map<String, List<String>> availabilityMap =
+                u.getUserType() == UserType.DOCTOR
+                        ? u.getAvailabilityMap()
+                        : null;
+
+        return new UserDetailDTO(
+                u.getId(),
+                u.getFirstName(),
+                u.getLastName(),
+                u.getEmail(),
+                u.getUserType().name(),
+                u.getCompanyName(),
+                u.getGender(),
+                u.getAddress(),
+                u.getLatitude(),
+                u.getLongitude(),
+                distance,
+                u.getDescription(),
+                null,
                 scheduleMap,
                 availabilityMap
         );
@@ -146,38 +205,82 @@ public class UserService implements UserDetailsService {
 // MODIFICAR USUARIO
 // -------------------------
     public ResponseEntity<Map<String, Object>> modificarMiUsuario(UserRequestDTO req) {
+
         User u = getAuthenticatedUser();
 
-        if (req.getFirstName() != null) u.setFirstName(req.getFirstName());
-        if (req.getLastName() != null) u.setLastName(req.getLastName());
-        if (req.getEmail() != null) u.setEmail(req.getEmail());
-        if (req.getCompanyName() != null) u.setCompanyName(req.getCompanyName());
-        if (req.getGender() != null) u.setGender(req.getGender());
-        if (req.getAddress() != null) u.setAddress(req.getAddress());
-        if (req.getDescription() != null) u.setDescription(req.getDescription());
-        if (req.getPassword() != null && !req.getPassword().isBlank())
-            u.setPassword(passwordEncoder.encode(req.getPassword()));
-        if (u.getUserType() == UserType.DOCTOR) {
-            if (req.getSchedule() != null) u.setSchedule(req.getSchedule());
-            if (req.getAvailability() != null) u.setAvailability(req.getAvailability());
+        if (req.getFirstName() != null)
+            u.setFirstName(req.getFirstName());
+
+        if (req.getLastName() != null)
+            u.setLastName(req.getLastName());
+
+        if (req.getEmail() != null)
+            u.setEmail(req.getEmail());
+
+        if (req.getCompanyName() != null)
+            u.setCompanyName(req.getCompanyName());
+
+        if (req.getGender() != null)
+            u.setGender(req.getGender());
+
+        // ============================
+        // ADDRESS + GEOLOCALIZACIÓN
+        // ============================
+        if (req.getAddress() != null && !req.getAddress().isBlank()) {
+
+            // Solo si realmente cambió
+            if (!req.getAddress().equals(u.getAddress())) {
+
+                u.setAddress(req.getAddress());
+
+                if (u.getUserType() == UserType.DOCTOR) {
+                    double[] coords =
+                            geocodingService.getCoordinates(req.getAddress());
+
+                    u.setLatitude(coords[0]);
+                    u.setLongitude(coords[1]);
+                }
+            }
         }
 
-        // Guardamos cambios en la DB
+        if (req.getDescription() != null)
+            u.setDescription(req.getDescription());
+
+        if (req.getPassword() != null && !req.getPassword().isBlank()) {
+            u.setPassword(passwordEncoder.encode(req.getPassword()));
+        }
+
+        // Solo doctores
+        if (u.getUserType() == UserType.DOCTOR) {
+
+            if (req.getSchedule() != null)
+                u.setSchedule(req.getSchedule());
+
+            if (req.getAvailability() != null)
+                u.setAvailability(req.getAvailability());
+        }
+
+        // ============================
+        // GUARDAR
+        // ============================
         User updatedUser = userRepository.save(u);
 
-        // Generamos un nuevo token JWT con el username/email y rol actualizado
-        String newToken = jwtService.create(updatedUser.getEmail(), "ROLE_" + updatedUser.getUserType());
+        // Nuevo token
+        String newToken = jwtService.create(
+                updatedUser.getEmail(),
+                "ROLE_" + updatedUser.getUserType()
+        );
 
-        // Mapear usuario a DTO para frontend
         UserDetailDTO dto = mapToDTO(updatedUser);
 
         Map<String, Object> res = new HashMap<>();
         res.put("mensaje", "Usuario actualizado correctamente");
         res.put("user", dto);
-        res.put("token", newToken); // enviamos token actualizado
+        res.put("token", newToken);
 
         return ResponseEntity.ok(res);
     }
+
 
 
     // -------------------------
@@ -273,6 +376,26 @@ public class UserService implements UserDetailsService {
         tokenRepository.delete(prt);
 
         return true;
+    }
+
+    public List<UserDetailDTO> findDoctorsNear(double lat, double lng) {
+
+        return userRepository.findByUserType(UserType.DOCTOR)
+                .stream()
+                .filter(d -> d.getLatitude() != null && d.getLongitude() != null)
+                .map(d -> {
+
+                    double distance = GeoUtils.distanceKm(
+                            lat, lng,
+                            d.getLatitude(),
+                            d.getLongitude()
+                    );
+
+                    return mapToDTOWithDistance(d, distance);
+                })
+                .sorted((a, b) ->
+                        Double.compare(a.distanceKm(), b.distanceKm()))
+                .toList();
     }
 
 }

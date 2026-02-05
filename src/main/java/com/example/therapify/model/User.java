@@ -34,6 +34,10 @@ public class User implements UserDetails {
     private String gender;
     private String address;
 
+    @Column
+    private Double longitude;
+
+    private Double distanceKm;
     @Column(nullable = false)
     private String password;
 
@@ -71,6 +75,47 @@ public class User implements UserDetails {
 
     // -------- Getters & Setters --------
 
+    public String getNombre() {
+        return nombre;
+    }
+
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
+
+    public String getApellido() {
+        return apellido;
+    }
+
+    public void setApellido(String apellido) {
+        this.apellido = apellido;
+    }
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+    @Column
+    private Double latitude;
+
+    public Double getDistanceKm() {
+        return distanceKm;
+    }
+
+    public void setDistanceKm(Double distanceKm) {
+        this.distanceKm = distanceKm;
+    }
 
     public Long getId() { return id; }
 
