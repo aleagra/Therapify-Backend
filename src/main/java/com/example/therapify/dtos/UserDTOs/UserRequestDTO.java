@@ -5,6 +5,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.util.List;
+import java.util.Map;
+
 public class UserRequestDTO {
 
     @NotBlank(message = "El nombre no puede estar vacío")
@@ -33,16 +36,32 @@ public class UserRequestDTO {
 
     private String address;
 
+    Map<String, Boolean> schedule;
+    Map<String, List<String>> availability;
+
     @Size(max = 500, message = "La descripción no puede exceder los 500 caracteres")
     private String description;
-
-    private String schedule;
-
-    private String availability;
 
     public UserRequestDTO() {}
 
     // ---------- GETTERS & SETTERS ----------
+
+
+    public Map<String, Boolean> getSchedule() {
+        return schedule;
+    }
+
+    public void setSchedule(Map<String, Boolean> schedule) {
+        this.schedule = schedule;
+    }
+
+    public Map<String, List<String>> getAvailability() {
+        return availability;
+    }
+
+    public void setAvailability(Map<String, List<String>> availability) {
+        this.availability = availability;
+    }
 
     public String getFirstName() {
         return firstName;
@@ -116,19 +135,4 @@ public class UserRequestDTO {
         this.description = description;
     }
 
-    public String getSchedule() {
-        return schedule;
-    }
-
-    public void setSchedule(String schedule) {
-        this.schedule = schedule;
-    }
-
-    public String getAvailability() {
-        return availability;
-    }
-
-    public void setAvailability(String availability) {
-        this.availability = availability;
-    }
 }

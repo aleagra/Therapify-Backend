@@ -5,8 +5,10 @@ import com.example.therapify.config.JwtService;
 import com.example.therapify.dtos.UserDTOs.UserDetailDTO;
 import com.example.therapify.dtos.UserDTOs.UserRequestDTO;
 import com.example.therapify.enums.UserType;
+import com.example.therapify.model.EmailVerificationToken;
 import com.example.therapify.model.PasswordResetToken;
 import com.example.therapify.model.User;
+import com.example.therapify.repository.EmailVerificationTokenRepository;
 import com.example.therapify.repository.PasswordResetTokenRepository;
 import com.example.therapify.repository.UserRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -14,7 +16,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -25,10 +29,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class UserService implements UserDetailsService {
@@ -39,23 +40,39 @@ public class UserService implements UserDetailsService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final PasswordResetTokenRepository tokenRepository;
     private final GeocodingService geocodingService;
+    private final EmailService emailService;
+    private final EmailVerificationTokenRepository emailTokenRepository;
 
 
     @Autowired
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, PasswordResetTokenRepository tokenRepository, GeocodingService geocodingService) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, PasswordResetTokenRepository tokenRepository, GeocodingService geocodingService, EmailService emailService, EmailVerificationTokenRepository emailTokenRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.tokenRepository = tokenRepository;
         this.geocodingService = geocodingService;
+        this.emailService = emailService;
+        this.emailTokenRepository = emailTokenRepository;
     }
 
     // -------------------------
     // CREAR USUARIO
     // -------------------------
+    @PreAuthorize("permitAll()")
+    @Transactional
     public UserDetailDTO crearUsuario(UserRequestDTO req) {
 
-        if (userRepository.findByEmail(req.getEmail()).isPresent()) {
+        // =========================
+        // VALIDACIÓN EMAIL (UX)
+        // =========================
+        Optional<User> existing = userRepository.findByEmail(req.getEmail());
+
+        if (existing.isPresent()) {
+            if (!existing.get().isEnabled()) {
+                throw new IllegalArgumentException(
+                        "Ya existe una cuenta con ese email. Revisá tu correo para verificarla."
+                );
+            }
             throw new IllegalArgumentException("El email ya está registrado");
         }
 
@@ -66,8 +83,14 @@ public class UserService implements UserDetailsService {
         u.setCompanyName(req.getCompanyName());
         u.setUserType(req.getUserType());
         u.setGender(req.getGender());
-        if (req.getAddress() != null && !req.getAddress().isBlank()) {
+        u.setDescription(req.getDescription());
+        u.setPassword(passwordEncoder.encode(req.getPassword()));
+        u.setEnabled(false);
 
+        // =========================
+        // ADDRESS + GEOLOCALIZACIÓN
+        // =========================
+        if (req.getAddress() != null && !req.getAddress().isBlank()) {
             u.setAddress(req.getAddress());
 
             if (req.getUserType() == UserType.DOCTOR) {
@@ -77,19 +100,76 @@ public class UserService implements UserDetailsService {
             }
         }
 
-        u.setDescription(req.getDescription());
-        u.setPassword(passwordEncoder.encode(req.getPassword()));
-
-        // Solo los doctores tienen schedule y availability
+        // =========================
+        // SCHEDULE + AVAILABILITY
+        // =========================
         if (req.getUserType() == UserType.DOCTOR) {
-            u.setSchedule(req.getSchedule());
-            u.setAvailability(req.getAvailability());
+
+            // SCHEDULE
+            if (req.getSchedule() != null) {
+                try {
+                    String scheduleJson = new ObjectMapper()
+                            .writeValueAsString(req.getSchedule());
+                    u.setSchedule(scheduleJson);
+                } catch (Exception e) {
+                    throw new RuntimeException("Error serializando schedule", e);
+                }
+            }
+
+            // AVAILABILITY
+            if (req.getAvailability() != null) {
+                try {
+                    String availabilityJson = new ObjectMapper()
+                            .writeValueAsString(req.getAvailability());
+                    u.setAvailability(availabilityJson);
+                } catch (Exception e) {
+                    throw new RuntimeException("Error serializando availability", e);
+                }
+            }
         }
 
-        User saved = userRepository.save(u);
+        // =========================
+        // GUARDAR USUARIO (BD MANDA)
+        // =========================
+        User saved;
+        try {
+            saved = userRepository.save(u);
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException(
+                    "Ya existe un usuario registrado con ese email"
+            );
+        }
+
+        // =========================
+        // TOKEN DE VERIFICACIÓN
+        // =========================
+        String token = UUID.randomUUID().toString();
+
+        EmailVerificationToken verificationToken =
+                new EmailVerificationToken(
+                        token,
+                        saved,
+                        LocalDateTime.now().plusHours(24)
+                );
+
+        emailTokenRepository.save(verificationToken);
+
+        String link =
+                "http://localhost:4200/verify-email?token=" + token;
+
+        // =========================
+        // ENVÍO DE EMAIL
+        // =========================
+        try {
+            emailService.sendEmailVerification(saved.getEmail(), link);
+        } catch (Exception e) {
+            System.err.println("❌ Error enviando email de verificación");
+            e.printStackTrace();
+        }
 
         return mapToDTO(saved);
     }
+
 
     // -------------------------
     // MAPEAR USUARIO A DTO
@@ -254,10 +334,10 @@ public class UserService implements UserDetailsService {
         if (u.getUserType() == UserType.DOCTOR) {
 
             if (req.getSchedule() != null)
-                u.setSchedule(req.getSchedule());
+                u.setSchedule(req.getSchedule().toString());
 
             if (req.getAvailability() != null)
-                u.setAvailability(req.getAvailability());
+                u.setAvailability(req.getAvailability().toString());
         }
 
         // ============================
@@ -331,10 +411,17 @@ public class UserService implements UserDetailsService {
         return new org.springframework.security.core.userdetails.User(
                 u.getEmail(),
                 u.getPassword(),
+                u.isEnabled(),
+                true,
+                true,
+                true,
                 List.of(authority)
         );
     }
 
+    public User save(User user) {
+        return userRepository.save(user);
+    }
     // -------------------------
     // BUSCAR POR ID
     // -------------------------

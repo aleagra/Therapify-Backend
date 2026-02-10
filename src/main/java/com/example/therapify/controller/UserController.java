@@ -44,11 +44,13 @@ public class UserController {
     // ==========================
 
     @PostMapping
-    public ResponseEntity<UserDetailDTO> crear(
-            @Valid @RequestBody UserRequestDTO req
-    ) {
-        UserDetailDTO creado = userService.crearUsuario(req);
-        return ResponseEntity.status(HttpStatus.CREATED).body(creado);
+    public ResponseEntity<?> crear(@Valid @RequestBody UserRequestDTO req) {
+        userService.crearUsuario(req);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(Map.of(
+                        "message",
+                        "Te enviamos un email para confirmar tu cuenta"
+                ));
     }
 
     @GetMapping("/{id}")
@@ -114,5 +116,7 @@ public class UserController {
                 userService.findDoctorsNear(lat, lng)
         );
     }
+
+
 
 }

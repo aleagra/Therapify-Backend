@@ -22,6 +22,18 @@ public class JwtFilter extends OncePerRequestFilter {
     @Autowired
     private JwtService jwtService;
 
+    /**
+     * 🔥 CLAVE: rutas públicas que NO pasan por el filtro
+     */
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+
+        return path.equals("/usuarios")                 // REGISTER
+                || path.startsWith("/auth")             // LOGIN / VERIFY / RESET
+                || request.getMethod().equals("OPTIONS"); // CORS
+    }
+
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
@@ -57,4 +69,3 @@ public class JwtFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 }
-

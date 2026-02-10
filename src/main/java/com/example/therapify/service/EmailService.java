@@ -24,4 +24,19 @@ public class EmailService {
 
         mailSender.send(mail);
     }
+    public void sendEmailVerification(String to, String link) {
+
+        SimpleMailMessage mail = new SimpleMailMessage();
+        mail.setFrom("therapifyy@gmail.com");
+        mail.setTo(to);
+        mail.setSubject("Verificá tu cuenta en Therapify");
+        mail.setText(
+                "¡Bienvenido a Therapify!\n\n" +
+                        "Para activar tu cuenta, haz click en el siguiente enlace:\n" +
+                        link + "\n\n" +
+                        "Si no creaste esta cuenta, puedes ignorar este mensaje."
+        );
+
+        mailSender.send(mail);
+    }
 }

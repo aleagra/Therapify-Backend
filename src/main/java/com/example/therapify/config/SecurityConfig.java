@@ -13,7 +13,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -68,34 +67,41 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
 
+                        // 🔹 PREFLIGHT
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // AUTH
+                        // 🔓 AUTH
                         .requestMatchers("/auth/**").permitAll()
+
+                        // 🔓 REGISTRO (CLAVE)
+                        .requestMatchers(HttpMethod.POST, "/usuarios").permitAll()
+
+                        // 🔒 UPDATE USUARIO
                         .requestMatchers(HttpMethod.PUT, "/usuarios/**")
                         .hasAnyRole("PACIENTE","DOCTOR","ADMIN")
-                        // USUARIOS
-                        .requestMatchers(HttpMethod.POST, "/usuarios").permitAll()
-                        .requestMatchers("/usuarios/**").permitAll()
 
-                        // PUBLICOS
+                        // 🔓 CONSULTAS PÚBLICAS DE USUARIOS (si querés)
+                        .requestMatchers(HttpMethod.GET, "/usuarios/**").permitAll()
+
+                        // 🔓 PUBLICOS
                         .requestMatchers(HttpMethod.GET, "/doctors/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/reviews").permitAll()
                         .requestMatchers(HttpMethod.GET, "/reviews/**").permitAll()
 
-                        // PRIVADOS
+                        // 🔒 PRIVADOS
                         .requestMatchers(HttpMethod.POST, "/reviews/**")
                         .hasAnyRole("PACIENTE","DOCTOR","ADMIN")
 
                         .requestMatchers("/appointments/**")
                         .hasAnyRole("PACIENTE","DOCTOR","ADMIN")
 
-                        // ADMIN
+                        // 🔒 ADMIN
                         .requestMatchers("/admin/**").hasRole("ADMIN")
 
+                        // 🔒 TODO LO DEMÁS
                         .anyRequest().authenticated()
                 )
 
+                // ⚠️ JWT DESPUÉS DE DEFINIR PERMISOS
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
 
                 .formLogin(AbstractHttpConfigurer::disable)

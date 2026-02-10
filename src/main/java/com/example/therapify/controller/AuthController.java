@@ -1,14 +1,19 @@
 package com.example.therapify.controller;
 import com.example.therapify.dtos.UserDTOs.AuthRequest;
+import com.example.therapify.model.EmailVerificationToken;
 import com.example.therapify.model.User;
 import com.example.therapify.config.JwtService;
+import com.example.therapify.repository.EmailVerificationTokenRepository;
 import com.example.therapify.service.EmailService;
 import com.example.therapify.service.UserService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 
 @RestController
@@ -19,17 +24,19 @@ public class AuthController {
     private final JwtService jwtService;
     private final UserService userService;
     private final EmailService emailService;
+    private final EmailVerificationTokenRepository emailTokenRepository;
 
     public AuthController(
             AuthenticationManager authenticationManager,
             JwtService jwtService,
             UserService userService,
-            EmailService emailService
+            EmailService emailService, EmailVerificationTokenRepository emailTokenRepository
     ) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.userService = userService;
         this.emailService = emailService;
+        this.emailTokenRepository = emailTokenRepository;
     }
 
     @PostMapping("/login")
@@ -42,8 +49,15 @@ public class AuthController {
                 )
         );
 
+
         User user = userService.findByEmail(authRequest.getEmail());
 
+        if (!user.isEnabled()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Debes verificar tu email"
+            );
+        }
         String token = jwtService.create(
                 user.getEmail(),
                 user.getUserType().name()
@@ -115,17 +129,34 @@ public class AuthController {
         );
     }
 
-    // ============================
-    // TEST EMAIL
-    // ============================
-    @GetMapping("/test-mail")
-    public String testMail() {
+    @GetMapping("/verify-email")
+    public ResponseEntity<?> verifyEmail(@RequestParam String token) {
 
-        emailService.sendResetPassword(
-                "aleagra5@gmail.com",
-                "http://google.com"
+        EmailVerificationToken evt =
+                emailTokenRepository.findByToken(token);
+
+        if (evt == null) {
+            return ResponseEntity.badRequest().body(
+                    Map.of("error", "Token inválido")
+            );
+        }
+
+        if (evt.getExpiration().isBefore(LocalDateTime.now())) {
+            return ResponseEntity.badRequest().body(
+                    Map.of("error", "Token expirado")
+            );
+        }
+
+        User user = evt.getUser();
+        user.setEnabled(true);
+        userService.save(user);
+
+        emailTokenRepository.delete(evt);
+
+        return ResponseEntity.ok(
+                Map.of("message", "Cuenta verificada correctamente")
         );
-
-        return "OK";
     }
+
+
 }

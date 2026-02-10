@@ -58,6 +58,7 @@ public class User implements UserDetails {
     private String availability;
 
     private String description;
+    private boolean enabled;
 
     // -------- Relaciones --------
 
@@ -81,6 +82,15 @@ public class User implements UserDetails {
 
     public void setNombre(String nombre) {
         this.nombre = nombre;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
     }
 
     public String getApellido() {
@@ -197,6 +207,4 @@ public class User implements UserDetails {
     @Override
     public boolean isCredentialsNonExpired() { return true; }
 
-    @Override
-    public boolean isEnabled() { return true; }
 }
