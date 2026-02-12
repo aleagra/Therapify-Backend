@@ -9,6 +9,8 @@ public class ReviewListDTO {
     private Integer value;
     private LocalDate date;
     private String patientName;
+    private String patientLastName;
+
 
     public ReviewListDTO() {}
 
@@ -30,6 +32,13 @@ public class ReviewListDTO {
 
     public Integer getValue() {
         return value;
+    }
+    public String getPatientLastName() {
+        return patientLastName;
+    }
+
+    public void setPatientLastName(String patientLastName) {
+        this.patientLastName = patientLastName;
     }
 
     public void setValue(Integer value) {

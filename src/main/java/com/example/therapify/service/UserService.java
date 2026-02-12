@@ -11,6 +11,7 @@ import com.example.therapify.model.User;
 import com.example.therapify.repository.EmailVerificationTokenRepository;
 import com.example.therapify.repository.PasswordResetTokenRepository;
 import com.example.therapify.repository.UserRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
@@ -175,21 +176,32 @@ public class UserService implements UserDetailsService {
     // MAPEAR USUARIO A DTO
     // -------------------------
     private UserDetailDTO mapToDTO(User u) {
-        // schedule solo si doctor
+
         Map<String, Boolean> scheduleMap = null;
-        if (u.getUserType() == UserType.DOCTOR && u.getSchedule() != null && !u.getSchedule().isBlank()) {
+        Map<String, List<String>> availabilityMap = null;
+
+        if (u.getUserType() == UserType.DOCTOR) {
+
             try {
-                scheduleMap = new ObjectMapper().readValue(u.getSchedule(), new TypeReference<Map<String, Boolean>>() {});
+
+                if (u.getSchedule() != null && !u.getSchedule().isBlank()) {
+                    scheduleMap = objectMapper.readValue(
+                            u.getSchedule(),
+                            new TypeReference<Map<String, Boolean>>() {}
+                    );
+                }
+
+                if (u.getAvailability() != null && !u.getAvailability().isBlank()) {
+                    availabilityMap = objectMapper.readValue(
+                            u.getAvailability(),
+                            new TypeReference<Map<String, List<String>>>() {}
+                    );
+                }
+
             } catch (Exception e) {
-                scheduleMap = null;
+                throw new RuntimeException("Error convirtiendo JSON a Map en mapToDTO", e);
             }
         }
-
-        // availability solo si doctor
-        Map<String, List<String>> availabilityMap =
-                u.getUserType() == UserType.DOCTOR
-                        ? u.getAvailabilityMap()
-                        : null;
 
         return new UserDetailDTO(
                 u.getId(),
@@ -208,8 +220,8 @@ public class UserService implements UserDetailsService {
                 scheduleMap,
                 availabilityMap
         );
-
     }
+
 
     private UserDetailDTO mapToDTOWithDistance(User u, double distance) {
 
@@ -308,17 +320,27 @@ public class UserService implements UserDetailsService {
         // ============================
         if (req.getAddress() != null && !req.getAddress().isBlank()) {
 
-            // Solo si realmente cambió
-            if (!req.getAddress().equals(u.getAddress())) {
+            String nuevaDireccion = req.getAddress().trim();
 
-                u.setAddress(req.getAddress());
+            if (!nuevaDireccion.equalsIgnoreCase(
+                    u.getAddress() != null ? u.getAddress().trim() : ""
+            )) {
+
+                u.setAddress(nuevaDireccion);
 
                 if (u.getUserType() == UserType.DOCTOR) {
-                    double[] coords =
-                            geocodingService.getCoordinates(req.getAddress());
 
-                    u.setLatitude(coords[0]);
-                    u.setLongitude(coords[1]);
+                    try {
+                        double[] coords =
+                                geocodingService.getCoordinates(nuevaDireccion);
+
+                        u.setLatitude(coords[0]);
+                        u.setLongitude(coords[1]);
+
+                    } catch (Exception e) {
+                        System.out.println("⚠ No se pudo geocodificar la dirección: " + e.getMessage());
+                        // NO rompemos el update
+                    }
                 }
             }
         }
@@ -330,14 +352,28 @@ public class UserService implements UserDetailsService {
             u.setPassword(passwordEncoder.encode(req.getPassword()));
         }
 
-        // Solo doctores
+        // ============================
+        // SOLO DOCTORES
+        // ============================
         if (u.getUserType() == UserType.DOCTOR) {
 
-            if (req.getSchedule() != null)
-                u.setSchedule(req.getSchedule().toString());
+            try {
 
-            if (req.getAvailability() != null)
-                u.setAvailability(req.getAvailability().toString());
+                if (req.getSchedule() != null) {
+                    String scheduleJson =
+                            objectMapper.writeValueAsString(req.getSchedule());
+                    u.setSchedule(scheduleJson);
+                }
+
+                if (req.getAvailability() != null) {
+                    String availabilityJson =
+                            objectMapper.writeValueAsString(req.getAvailability());
+                    u.setAvailability(availabilityJson);
+                }
+
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException("Error convirtiendo schedule/availability a JSON", e);
+            }
         }
 
         // ============================
@@ -348,7 +384,7 @@ public class UserService implements UserDetailsService {
         // Nuevo token
         String newToken = jwtService.create(
                 updatedUser.getEmail(),
-                "ROLE_" + updatedUser.getUserType()
+                updatedUser.getUserType().name()   // 👈 SIN "ROLE_"
         );
 
         UserDetailDTO dto = mapToDTO(updatedUser);

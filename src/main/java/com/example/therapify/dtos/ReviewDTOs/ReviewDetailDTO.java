@@ -10,13 +10,22 @@ public class ReviewDetailDTO {
 
     private Long patientId;
     private String patientName;
-
+    private String patientLastName;
     private Long doctorId;
     private String doctorName;
+
 
     public ReviewDetailDTO() {}
 
     // Getters y setters...
+
+    public String getPatientLastName() {
+        return patientLastName;
+    }
+
+    public void setPatientLastName(String patientLastName) {
+        this.patientLastName = patientLastName;
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

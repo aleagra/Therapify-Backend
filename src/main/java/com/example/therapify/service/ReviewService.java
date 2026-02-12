@@ -172,6 +172,7 @@ public class ReviewService {
         dto.setDate(review.getDate().toLocalDate());
         dto.setPatientId(review.getPatient().getId());
         dto.setPatientName(review.getPatient().getFirstName());
+        dto.setPatientLastName(review.getPatient().getLastName());
         dto.setDoctorId(review.getDoctor().getId());
         dto.setDoctorName(review.getDoctor().getFirstName());
 
@@ -188,6 +189,7 @@ public class ReviewService {
         dto.setDate(review.getDate().toLocalDate());
         dto.setPatientId(review.getPatient().getId());
         dto.setPatientName(review.getPatient().getFirstName());
+        dto.setPatientLastName(review.getPatient().getLastName());
 
         return dto;
     }

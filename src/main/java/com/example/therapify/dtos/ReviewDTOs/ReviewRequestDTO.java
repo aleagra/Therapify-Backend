@@ -3,8 +3,6 @@ package com.example.therapify.dtos.ReviewDTOs;
 import jakarta.validation.constraints.*;
 
 public class ReviewRequestDTO {
-    @NotNull(message = "El ID del paciente es obligatorio")
-    private Long patientId;
 
     @NotNull(message = "El ID del doctor es obligatorio")
     private Long doctorId;
@@ -18,23 +16,7 @@ public class ReviewRequestDTO {
     @Max(value = 5, message = "La valoración no puede superar 5")
     private Integer value;
 
-    // No incluimos date porque lo genera el backend automáticamente (recomendado)
-    // pero si querés que venga del front, avisame y te lo agrego.
-
-
-    // -------- Constructor vacío --------
-    public ReviewRequestDTO() {
-    }
-
-    // -------- Getters & Setters --------
-
-    public Long getPatientId() {
-        return patientId;
-    }
-
-    public void setPatientId(Long patientId) {
-        this.patientId = patientId;
-    }
+    public ReviewRequestDTO() {}
 
     public Long getDoctorId() {
         return doctorId;
