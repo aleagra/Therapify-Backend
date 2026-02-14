@@ -23,9 +23,6 @@ public class ReviewController {
         this.reviewService = reviewService;
     }
 
-    // ------------------------------
-    // POST: crear reseña
-    // ------------------------------
     @PreAuthorize("hasAnyRole('PACIENTE','DOCTOR')")
     @PostMapping
     public ResponseEntity<ReviewDetailDTO> createReview(
@@ -45,9 +42,6 @@ public class ReviewController {
         return ResponseEntity.ok(updated);
     }
 
-    // ------------------------------
-    // GET: reseñas de un doctor
-    // ------------------------------
     @GetMapping("/doctor/{doctorId}")
     public ResponseEntity<List<ReviewListDTO>> getReviewsByDoctor(
             @PathVariable Long doctorId
@@ -56,9 +50,6 @@ public class ReviewController {
         return ResponseEntity.ok(reviews);
     }
 
-    // ------------------------------
-    // GET: reseñas del paciente logueado
-    // ------------------------------
     @PreAuthorize("hasAnyRole('PACIENTE','DOCTOR')")
     @GetMapping("/my")
     public ResponseEntity<List<ReviewListDTO>> getMyReviews() {
@@ -71,9 +62,7 @@ public class ReviewController {
         List<ReviewListDTO> reviews = reviewService.getReviewsByUser(userId);
         return ResponseEntity.ok(reviews);
     }
-    // ------------------------------
-    // DELETE: eliminar reseña (solo ADMIN)
-    // ------------------------------
+
     @PreAuthorize("hasAnyRole('PACIENTE','DOCTOR','ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> deleteReview(

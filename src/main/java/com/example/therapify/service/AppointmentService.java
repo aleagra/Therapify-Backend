@@ -23,9 +23,6 @@ public class AppointmentService {
     @Autowired
     private UserService userService;
 
-    // -------------------------------------------------
-    // CREATE APPOINTMENT
-    // -------------------------------------------------
     public AppointmentDetailDTO createAppointment(AppointmentRequestDTO dto) {
 
         User patient = userService.getAuthenticatedUser();
@@ -63,7 +60,7 @@ public class AppointmentService {
 
         User user = userService.getAuthenticatedUser();
 
-        String role = user.getUserType().name();   // PACIENTE, DOCTOR, ADMIN
+        String role = user.getUserType().name();
 
         if (role.equals("ADMIN")) {
             return appointmentRepository
@@ -73,7 +70,6 @@ public class AppointmentService {
                     .toList();
         }
 
-        // Para pacientes y doctores (o usuarios que sean ambos)
         return appointmentRepository
                 .findByDoctorIdOrPatientId(user.getId(), user.getId())
                 .stream()
@@ -100,11 +96,6 @@ public class AppointmentService {
         return true;
     }
 
-
-    // -------------------------------------------------
-    // GET appointments by doctor + date
-    // (para mostrar horarios ocupados)
-    // -------------------------------------------------
     public List<AppointmentListDTO> getAppointmentsByDoctorAndDate(Long doctorId, String date) {
 
         LocalDate localDate = LocalDate.parse(date);
@@ -116,9 +107,6 @@ public class AppointmentService {
                 .toList();
     }
 
-    // -------------------------------------------------
-    // DTO mapping
-    // -------------------------------------------------
     private AppointmentDetailDTO toDetailDTO(Appointment ap) {
         AppointmentDetailDTO dto = new AppointmentDetailDTO();
 
@@ -146,11 +134,9 @@ public class AppointmentService {
         dto.setPatientId(ap.getPatient().getId());
         dto.setCreatedAt(ap.getCreatedAt().toString());
 
-        // Buscar usuario paciente para nombre completo
         User patient = userService.findEntityById(ap.getPatient().getId());
         dto.setPatientName(patient.getFirstName() + " " + patient.getLastName());
 
-        // Buscar usuario doctor para nombre completo
         User doctor = userService.findEntityById(ap.getDoctor().getId());
         dto.setDoctorName(doctor.getFirstName() + " " + doctor.getLastName());
 

@@ -85,7 +85,6 @@ public class AuthController {
         User user = userService.findByEmail(email);
 
         if (user == null) {
-            // No revelar si existe o no
             return ResponseEntity.ok().build();
         }
 
@@ -104,9 +103,6 @@ public class AuthController {
         );
     }
 
-    // ============================
-    // RESET PASSWORD
-    // ============================
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(
             @RequestBody Map<String, String> body

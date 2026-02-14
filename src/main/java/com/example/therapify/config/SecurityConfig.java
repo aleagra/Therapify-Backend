@@ -32,9 +32,6 @@
             this.jwtFilter = jwtFilter;
         }
 
-        // ================================
-        // CORS CONFIG
-        // ================================
         @Bean
         public CorsConfigurationSource corsConfigurationSource() {
             CorsConfiguration config = new CorsConfiguration();
@@ -51,9 +48,6 @@
             return source;
         }
 
-        // ================================
-        // SECURITY FILTER CHAIN
-        // ================================
         @Bean
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
@@ -67,34 +61,26 @@
 
                     .authorizeHttpRequests(auth -> auth
 
-                            // 🔹 PREFLIGHT
                             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                            // 🔓 AUTH
                             .requestMatchers("/auth/**").permitAll()
 
-                            // 🔓 REGISTRO (CLAVE)
                             .requestMatchers(HttpMethod.POST, "/usuarios").permitAll()
 
-                            // 🔒 UPDATE USUARIO
                             .requestMatchers(HttpMethod.PUT, "/usuarios", "/usuarios/**")
                             .hasAnyRole("PACIENTE","DOCTOR","ADMIN")
 
-                            // 🔓 CONSULTAS PÚBLICAS DE USUARIOS (si querés)
                             .requestMatchers(HttpMethod.GET, "/usuarios/**").permitAll()
 
-                            // 🔓 PUBLICOS
                             .requestMatchers(HttpMethod.GET, "/doctors/**").permitAll()
                             .requestMatchers(HttpMethod.GET, "/reviews/**").permitAll()
 
-                            // 🔒 PRIVADOS
                             .requestMatchers(HttpMethod.POST, "/reviews/**")
                             .hasAnyRole("PACIENTE","DOCTOR","ADMIN")
 
                             .requestMatchers("/appointments/**")
                             .hasAnyRole("PACIENTE","DOCTOR","ADMIN")
 
-                            // 🔒 ADMIN
                             .requestMatchers("/admin/**").hasRole("ADMIN")
 
                             // 🔒 TODO LO DEMÁS
@@ -110,9 +96,6 @@
             return http.build();
         }
 
-        // ================================
-        // AUTHENTICATION MANAGER
-        // ================================
         @Bean
         public AuthenticationManager authenticationManager(
                 AuthenticationConfiguration config

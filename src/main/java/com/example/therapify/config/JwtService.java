@@ -21,7 +21,7 @@ public class JwtService {
 
         return JWT.create()
                 .withSubject(username)
-                .withClaim("role", cleanRole)   // DOCTOR, PACIENTE, ADMIN
+                .withClaim("role", cleanRole)
                 .withIssuer("domestic-services")
                 .withIssuedAt(new Date())
                 .withExpiresAt(

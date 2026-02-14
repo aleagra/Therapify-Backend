@@ -14,32 +14,24 @@ public class Appointment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Fecha de la cita
     @Column(nullable = false)
     private LocalDate date;
 
-    // Hora de inicio (ej. "14:00")
     @Column(nullable = false)
     private LocalTime startTime;
 
-    // Hora de fin (ej. "15:00")
     @Column(nullable = false)
     private LocalTime endTime;
 
-    // pending | confirmed | completed
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Status status;
 
-    // Notas opcionales del paciente
     @Column(columnDefinition = "TEXT")
     private String notes;
 
-    // Fecha en que se creó la reserva
     @Column(nullable = false)
     private LocalDateTime createdAt;
-
-    // ----------- Relaciones -----------
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "doctor_id")
@@ -51,8 +43,6 @@ public class Appointment {
     @JsonBackReference
     private User patient;
 
-    // ----------- Constructor -----------
-
     public Appointment() {}
 
     @PrePersist
@@ -60,8 +50,6 @@ public class Appointment {
         createdAt = LocalDateTime.now();
         if (status == null) status = Status.PENDING;
     }
-
-    // ----------- Getters y Setters -----------
 
     public Long getId() { return id; }
 

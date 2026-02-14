@@ -17,7 +17,6 @@ public class ReviewDetailDTO {
 
     public ReviewDetailDTO() {}
 
-    // Getters y setters...
 
     public String getPatientLastName() {
         return patientLastName;

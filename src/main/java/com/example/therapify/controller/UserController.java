@@ -23,10 +23,6 @@ public class UserController {
     @Autowired
     private UserService userService;
 
-    // ==========================
-    // SOLO ADMIN
-    // ==========================
-
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public List<UserDetailDTO> listar() {
@@ -38,10 +34,6 @@ public class UserController {
     public ResponseEntity<Map<String, String>> eliminar(@PathVariable Long id) {
         return userService.eliminarUsuario(id);
     }
-
-    // ==========================
-    // PUBLICO / AUTENTICADO
-    // ==========================
 
     @PostMapping
     public ResponseEntity<?> crear(@Valid @RequestBody UserRequestDTO req) {
@@ -65,16 +57,11 @@ public class UserController {
         return userService.modificarMiUsuario(req);
     }
 
-    // Endpoint opcional: obtener perfil propio
     @GetMapping("/mi-perfil")
     public UserDetailDTO miPerfil() {
         User u = userService.getAuthenticatedUser();
         return userService.buscarPorId(u.getId());
     }
-
-    // ==========================
-    // BUSCAR POR ROL
-    // ==========================
 
     @GetMapping("/rol/{tipo}")
     public ResponseEntity<List<UserDetailDTO>> findByTipoDeUsuario(
@@ -84,10 +71,6 @@ public class UserController {
                 userService.findByUserType(tipo.name())
         );
     }
-
-    // ==========================
-    // BUSQUEDAS POR NOMBRE / APELLIDO
-    // ==========================
 
     @GetMapping("/nombre/{nombre}")
     public ResponseEntity<List<UserDetailDTO>> findByNombre(

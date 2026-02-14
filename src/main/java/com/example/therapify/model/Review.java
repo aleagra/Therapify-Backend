@@ -11,14 +11,26 @@ public class Review {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    // Comentario del paciente hacia el doctor
     @Column(nullable = false, length = 500)
     private String comment;
 
-    // Valor numérico de la reseña (1–5)
     @Column(nullable = false)
     private Integer value;
+
+    @Column(nullable = false)
+    private LocalDateTime date;
+
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "patient_id")
+    @JsonBackReference
+    private User patient;
+
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "doctor_id")
+    @JsonBackReference
+    private User doctor;
+
+    public Review() {}
 
     public void setId(Long id) {
         this.id = id;
@@ -27,35 +39,6 @@ public class Review {
     public void setDate(LocalDateTime date) {
         this.date = date;
     }
-
-    // Fecha de creación de la reseña
-    @Column(nullable = false)
-    private LocalDateTime date;
-
-    // -------- Relaciones --------
-
-    // Paciente que crea la reseña
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "patient_id")
-    @JsonBackReference
-    private User patient;
-
-    // Doctor que recibe la reseña
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "doctor_id")
-    @JsonBackReference
-    private User doctor;
-
-    // -------- Constructors --------
-
-    public Review() {}
-
-    @PrePersist
-    protected void onCreate() {
-        this.date = LocalDateTime.now();
-    }
-
-    // -------- Getters & Setters --------
 
     public Long getId() {
         return id;
@@ -95,6 +78,11 @@ public class Review {
 
     public void setDoctor(User doctor) {
         this.doctor = doctor;
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        this.date = LocalDateTime.now();
     }
 
     @Override

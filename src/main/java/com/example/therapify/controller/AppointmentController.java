@@ -22,9 +22,6 @@ public class AppointmentController {
         this.appointmentService = appointmentService;
     }
 
-    // ------------------------------
-    // POST: crear turno (PACIENTE)
-    // ------------------------------
     @PreAuthorize("hasAnyRole('PACIENTE','DOCTOR')")
     @PostMapping
     public ResponseEntity<AppointmentDetailDTO> createAppointment(
@@ -49,11 +46,6 @@ public class AppointmentController {
         return ResponseEntity.ok(deleted);
     }
 
-
-    // ------------------------------
-    // GET: turnos de un doctor por fecha
-    // (PACIENTE / DOCTOR / ADMIN)
-    // ------------------------------
     @PreAuthorize("hasAnyRole('PACIENTE','DOCTOR','ADMIN')")
     @GetMapping("/doctor/{doctorId}")
     public ResponseEntity<List<AppointmentListDTO>> getAppointmentsByDoctorAndDate(

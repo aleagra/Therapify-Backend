@@ -1,7 +1,6 @@
 package com.example.therapify.model;
 
 import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
 
 @Entity

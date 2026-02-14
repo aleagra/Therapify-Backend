@@ -19,11 +19,9 @@ public class User implements UserDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // firstName
     @Column(nullable = false)
     private String nombre;
 
-    // lastName
     @Column(nullable = false)
     private String apellido;
 
@@ -41,26 +39,20 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String password;
 
-    // No se guarda en la BD, solo para validación
     @Transient
     private String confirmPassword;
 
-    // userType (enum) — CAMBIADO
     @Enumerated(EnumType.STRING)
     private UserType userType;
 
-    // schedule {monday: true, ...}
     @Column(columnDefinition = "TEXT")
     private String schedule;
 
-    // availability {monday:["8:00", ...], ...}
     @Column(columnDefinition = "TEXT")
     private String availability;
 
     private String description;
     private boolean enabled;
-
-    // -------- Relaciones --------
 
     @OneToMany(mappedBy = "doctor")
     private List<Appointment> turnosComoDoctor;
@@ -74,16 +66,6 @@ public class User implements UserDetails {
     @OneToMany(mappedBy = "patient")
     private List<Review> resenasCreadas;
 
-    // -------- Getters & Setters --------
-
-    public String getNombre() {
-        return nombre;
-    }
-
-    public void setNombre(String nombre) {
-        this.nombre = nombre;
-    }
-
     @Override
     public boolean isEnabled() {
         return enabled;
@@ -91,14 +73,6 @@ public class User implements UserDetails {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
-    }
-
-    public String getApellido() {
-        return apellido;
-    }
-
-    public void setApellido(String apellido) {
-        this.apellido = apellido;
     }
 
     public Double getLatitude() {
@@ -118,14 +92,6 @@ public class User implements UserDetails {
     }
     @Column
     private Double latitude;
-
-    public Double getDistanceKm() {
-        return distanceKm;
-    }
-
-    public void setDistanceKm(Double distanceKm) {
-        this.distanceKm = distanceKm;
-    }
 
     public Long getId() { return id; }
 
@@ -153,9 +119,6 @@ public class User implements UserDetails {
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 
-    public String getConfirmPassword() { return confirmPassword; }
-    public void setConfirmPassword(String confirmPassword) { this.confirmPassword = confirmPassword; }
-
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
 
@@ -166,35 +129,10 @@ public class User implements UserDetails {
     public UserType getUserType() { return userType; }
     public void setUserType(UserType userType) { this.userType = userType; }
 
-    public List<Appointment> getTurnosComoDoctor() { return turnosComoDoctor; }
-    public void setTurnosComoDoctor(List<Appointment> turnosComoDoctor) { this.turnosComoDoctor = turnosComoDoctor; }
-
-    public List<Appointment> getTurnosComoPaciente() { return turnosComoPaciente; }
-    public void setTurnosComoPaciente(List<Appointment> turnosComoPaciente) { this.turnosComoPaciente = turnosComoPaciente; }
-
-    public List<Review> getResenasRecibidas() { return resenasRecibidas; }
-    public void setResenasRecibidas(List<Review> resenasRecibidas) { this.resenasRecibidas = resenasRecibidas; }
-
-    public List<Review> getResenasCreadas() { return resenasCreadas; }
-    public void setResenasCreadas(List<Review> resenasCreadas) { this.resenasCreadas = resenasCreadas; }
-
-    // -------- UserDetails --------
-
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority(userType.name()));
     }
-
-    public Map<String, List<String>> getAvailabilityMap() {
-        if (this.availability == null || this.availability.isBlank()) return null;
-        ObjectMapper mapper = new ObjectMapper();
-        try {
-            return mapper.readValue(this.availability, new TypeReference<Map<String, List<String>>>() {});
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
     @Override
     public String getUsername() { return email; }
 
@@ -206,5 +144,17 @@ public class User implements UserDetails {
 
     @Override
     public boolean isCredentialsNonExpired() { return true; }
+
+    public Map<String, List<String>> getAvailabilityMap() {
+        if (this.availability == null || this.availability.isBlank()) return null;
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            return mapper.readValue(this.availability, new TypeReference<Map<String, List<String>>>() {});
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+
 
 }

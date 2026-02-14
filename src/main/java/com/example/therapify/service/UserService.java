@@ -56,16 +56,10 @@ public class UserService implements UserDetailsService {
         this.emailTokenRepository = emailTokenRepository;
     }
 
-    // -------------------------
-    // CREAR USUARIO
-    // -------------------------
     @PreAuthorize("permitAll()")
     @Transactional
     public UserDetailDTO crearUsuario(UserRequestDTO req) {
 
-        // =========================
-        // VALIDACIÓN EMAIL (UX)
-        // =========================
         Optional<User> existing = userRepository.findByEmail(req.getEmail());
 
         if (existing.isPresent()) {
@@ -88,9 +82,6 @@ public class UserService implements UserDetailsService {
         u.setPassword(passwordEncoder.encode(req.getPassword()));
         u.setEnabled(false);
 
-        // =========================
-        // ADDRESS + GEOLOCALIZACIÓN
-        // =========================
         if (req.getAddress() != null && !req.getAddress().isBlank()) {
             u.setAddress(req.getAddress());
 
@@ -101,12 +92,9 @@ public class UserService implements UserDetailsService {
             }
         }
 
-        // =========================
-        // SCHEDULE + AVAILABILITY
-        // =========================
         if (req.getUserType() == UserType.DOCTOR) {
 
-            // SCHEDULE
+
             if (req.getSchedule() != null) {
                 try {
                     String scheduleJson = new ObjectMapper()
@@ -117,7 +105,6 @@ public class UserService implements UserDetailsService {
                 }
             }
 
-            // AVAILABILITY
             if (req.getAvailability() != null) {
                 try {
                     String availabilityJson = new ObjectMapper()
@@ -129,9 +116,6 @@ public class UserService implements UserDetailsService {
             }
         }
 
-        // =========================
-        // GUARDAR USUARIO (BD MANDA)
-        // =========================
         User saved;
         try {
             saved = userRepository.save(u);
@@ -141,9 +125,6 @@ public class UserService implements UserDetailsService {
             );
         }
 
-        // =========================
-        // TOKEN DE VERIFICACIÓN
-        // =========================
         String token = UUID.randomUUID().toString();
 
         EmailVerificationToken verificationToken =
@@ -158,9 +139,6 @@ public class UserService implements UserDetailsService {
         String link =
                 "http://localhost:4200/verify-email?token=" + token;
 
-        // =========================
-        // ENVÍO DE EMAIL
-        // =========================
         try {
             emailService.sendEmailVerification(saved.getEmail(), link);
         } catch (Exception e) {
@@ -171,10 +149,6 @@ public class UserService implements UserDetailsService {
         return mapToDTO(saved);
     }
 
-
-    // -------------------------
-    // MAPEAR USUARIO A DTO
-    // -------------------------
     private UserDetailDTO mapToDTO(User u) {
 
         Map<String, Boolean> scheduleMap = null;
@@ -262,26 +236,18 @@ public class UserService implements UserDetailsService {
         );
     }
 
-    // -------------------------
-    // OBTENER USUARIO AUTENTICADO
-    // -------------------------
     public User getAuthenticatedUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado"));
     }
 
-    // -------------------------
-    // LISTAR USUARIOS
-    // -------------------------
     public List<UserDetailDTO> listarUsuarios() {
         return userRepository.findAll().stream()
                 .map(this::mapToDTO)
                 .toList();
     }
 
-    // BUSCAR USUARIO POR ID (entidad completa)
-// -------------------------
     public User findEntityById(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + id));
@@ -290,12 +256,6 @@ public class UserService implements UserDetailsService {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado con email: " + email));
     }
-    // -------------------------
-    // MODIFICAR USUARIO
-    // -------------------------
-    // -------------------------
-// MODIFICAR USUARIO
-// -------------------------
     public ResponseEntity<Map<String, Object>> modificarMiUsuario(UserRequestDTO req) {
 
         User u = getAuthenticatedUser();
@@ -315,9 +275,6 @@ public class UserService implements UserDetailsService {
         if (req.getGender() != null)
             u.setGender(req.getGender());
 
-        // ============================
-        // ADDRESS + GEOLOCALIZACIÓN
-        // ============================
         if (req.getAddress() != null && !req.getAddress().isBlank()) {
 
             String nuevaDireccion = req.getAddress().trim();
@@ -339,7 +296,6 @@ public class UserService implements UserDetailsService {
 
                     } catch (Exception e) {
                         System.out.println("⚠ No se pudo geocodificar la dirección: " + e.getMessage());
-                        // NO rompemos el update
                     }
                 }
             }
@@ -352,9 +308,6 @@ public class UserService implements UserDetailsService {
             u.setPassword(passwordEncoder.encode(req.getPassword()));
         }
 
-        // ============================
-        // SOLO DOCTORES
-        // ============================
         if (u.getUserType() == UserType.DOCTOR) {
 
             try {
@@ -376,15 +329,10 @@ public class UserService implements UserDetailsService {
             }
         }
 
-        // ============================
-        // GUARDAR
-        // ============================
         User updatedUser = userRepository.save(u);
-
-        // Nuevo token
         String newToken = jwtService.create(
                 updatedUser.getEmail(),
-                updatedUser.getUserType().name()   // 👈 SIN "ROLE_"
+                updatedUser.getUserType().name()
         );
 
         UserDetailDTO dto = mapToDTO(updatedUser);
@@ -397,11 +345,6 @@ public class UserService implements UserDetailsService {
         return ResponseEntity.ok(res);
     }
 
-
-
-    // -------------------------
-    // ELIMINAR USUARIO
-    // -------------------------
     public ResponseEntity<Map<String, String>> eliminarUsuario(Long id) {
         User u = userRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("No existe usuario con ID " + id));
@@ -412,9 +355,6 @@ public class UserService implements UserDetailsService {
         return ResponseEntity.ok(res);
     }
 
-    // -------------------------
-    // BUSQUEDAS PERSONALIZADAS
-    // -------------------------
     public List<UserDetailDTO> findByUserType(String type) {
         return userRepository.findByUserType(UserType.valueOf(type)).stream()
                 .map(this::mapToDTO)
@@ -433,9 +373,6 @@ public class UserService implements UserDetailsService {
                 .toList();
     }
 
-    // -------------------------
-    // LOGIN → UserDetailsService
-    // -------------------------
     @Override
     @Transactional
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
@@ -458,9 +395,7 @@ public class UserService implements UserDetailsService {
     public User save(User user) {
         return userRepository.save(user);
     }
-    // -------------------------
-    // BUSCAR POR ID
-    // -------------------------
+
     public UserDetailDTO buscarPorId(Long id) {
         User u = userRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado"));

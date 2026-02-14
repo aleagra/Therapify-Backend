@@ -15,9 +15,6 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-
-import javax.management.relation.Role;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -33,22 +30,17 @@ public class ReviewService {
     @Autowired
     private AppointmentRepository appointmentRepository;
 
-    // -----------------------------
-    // CREATE REVIEW
-    // -----------------------------
     public ReviewDetailDTO createReview(ReviewRequestDTO dto) {
 
         User patient = userService.getAuthenticatedUser();
         User doctor = userService.findEntityById(dto.getDoctorId());
 
-        // ❌ No evaluarse a sí mismo
         if (patient.getId().equals(doctor.getId())) {
             throw new IllegalArgumentException(
                     "No podés dejar una reseña sobre vos mismo."
             );
         }
 
-        // ✅ Validar turno previo
         boolean hadAppointment =
                 appointmentRepository.existsByPatientAndDoctorAndStatus(
                         patient,
@@ -81,7 +73,6 @@ public class ReviewService {
                         new ReviewNotFoundException("Review no encontrada")
                 );
 
-        // ✅ Solo dueño puede editar
         if (!review.getPatient().getId().equals(auth.getId())) {
             throw new AccessDeniedException(
                     "No podés editar reseñas de otros usuarios"
@@ -96,10 +87,6 @@ public class ReviewService {
         return toDetailDTO(review);
     }
 
-
-    // -----------------------------
-    // REVIEWS DE UN DOCTOR
-    // -----------------------------
     public List<ReviewListDTO> getReviewsByDoctor(Long doctorId) {
 
         return reviewRepository
@@ -109,9 +96,6 @@ public class ReviewService {
                 .toList();
     }
 
-    // -----------------------------
-    // MIS REVIEWS (PACIENTE)
-    // -----------------------------
     public List<ReviewListDTO> getMyReviews() {
 
         User patient = userService.getAuthenticatedUser();
@@ -130,9 +114,6 @@ public class ReviewService {
                 .toList();
     }
 
-    // -----------------------------
-    // DELETE (SOLO ADMIN)
-    // -----------------------------
     public ResponseEntity<Map<String, String>> deleteReview(Long id) {
 
         Review review = reviewRepository.findById(id)
@@ -158,10 +139,6 @@ public class ReviewService {
         );
     }
 
-
-    // -----------------------------
-    // DTO MAPPERS
-    // -----------------------------
     private ReviewDetailDTO toDetailDTO(Review review) {
 
         ReviewDetailDTO dto = new ReviewDetailDTO();

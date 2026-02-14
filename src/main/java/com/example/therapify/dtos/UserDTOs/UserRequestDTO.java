@@ -44,9 +44,6 @@ public class UserRequestDTO {
 
     public UserRequestDTO() {}
 
-    // ---------- GETTERS & SETTERS ----------
-
-
     public Map<String, Boolean> getSchedule() {
         return schedule;
     }
