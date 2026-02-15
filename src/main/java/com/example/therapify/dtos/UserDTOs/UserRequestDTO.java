@@ -1,4 +1,5 @@
 package com.example.therapify.dtos.UserDTOs;
+import com.example.therapify.enums.Specialty;
 import com.example.therapify.enums.UserType;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -26,7 +27,6 @@ public class UserRequestDTO {
     @Size(min = 6, max = 20, message = "La contraseña debe contener entre 6 y 20 caracteres")
     private String password;
 
-
     private String companyName;
 
     @NotNull(message = "El tipo de usuario es obligatorio")
@@ -41,6 +41,21 @@ public class UserRequestDTO {
 
     @Size(max = 500, message = "La descripción no puede exceder los 500 caracteres")
     private String description;
+
+    public Specialty getSpecialty() {return specialty;}
+
+    public void setSpecialty(Specialty specialty) {this.specialty = specialty;}
+
+    public Double getConsultationPrice() {
+        return consultationPrice;
+    }
+
+    public void setConsultationPrice(Double consultationPrice) {
+        this.consultationPrice = consultationPrice;
+    }
+
+    private Specialty specialty;
+    private Double consultationPrice;
 
     public UserRequestDTO() {}
 

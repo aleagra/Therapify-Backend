@@ -94,6 +94,8 @@ public class UserService implements UserDetailsService {
 
         if (req.getUserType() == UserType.DOCTOR) {
 
+            u.setSpecialty(req.getSpecialty());
+            u.setConsultationPrice(req.getConsultationPrice());
 
             if (req.getSchedule() != null) {
                 try {
@@ -114,6 +116,8 @@ public class UserService implements UserDetailsService {
                     throw new RuntimeException("Error serializando availability", e);
                 }
             }
+
+
         }
 
         User saved;
@@ -190,9 +194,10 @@ public class UserService implements UserDetailsService {
                 u.getLongitude(),
                 null,
                 u.getDescription(),
-                null,
+                u.getSpecialty() != null ? u.getSpecialty().name() : null,
                 scheduleMap,
-                availabilityMap
+                availabilityMap,
+                u.getConsultationPrice()
         );
     }
 
@@ -230,14 +235,15 @@ public class UserService implements UserDetailsService {
                 u.getLongitude(),
                 distance,
                 u.getDescription(),
-                null,
+                u.getSpecialty() != null ? u.getSpecialty().name() : null,
                 scheduleMap,
-                availabilityMap
+                availabilityMap,
+                u.getConsultationPrice()
         );
     }
 
     public User getAuthenticatedUser() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        String email = Objects.requireNonNull(SecurityContextHolder.getContext().getAuthentication()).getName();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado"));
     }
@@ -301,9 +307,6 @@ public class UserService implements UserDetailsService {
             }
         }
 
-        if (req.getDescription() != null)
-            u.setDescription(req.getDescription());
-
         if (req.getPassword() != null && !req.getPassword().isBlank()) {
             u.setPassword(passwordEncoder.encode(req.getPassword()));
         }
@@ -323,6 +326,15 @@ public class UserService implements UserDetailsService {
                             objectMapper.writeValueAsString(req.getAvailability());
                     u.setAvailability(availabilityJson);
                 }
+
+                if (req.getSpecialty() != null)
+                    u.setSpecialty(req.getSpecialty());
+
+                if (req.getConsultationPrice() != null)
+                    u.setConsultationPrice(req.getConsultationPrice());
+
+                if (req.getDescription() != null)
+                    u.setDescription(req.getDescription());
 
             } catch (JsonProcessingException e) {
                 throw new RuntimeException("Error convirtiendo schedule/availability a JSON", e);
@@ -438,7 +450,7 @@ public class UserService implements UserDetailsService {
 
     public List<UserDetailDTO> findDoctorsNear(double lat, double lng) {
 
-        return userRepository.findByUserType(UserType.DOCTOR)
+        List<UserDetailDTO> result = userRepository.findByUserType(UserType.DOCTOR)
                 .stream()
                 .filter(d -> d.getLatitude() != null && d.getLongitude() != null)
                 .map(d -> {
@@ -449,11 +461,19 @@ public class UserService implements UserDetailsService {
                             d.getLongitude()
                     );
 
-                    return mapToDTOWithDistance(d, distance);
+                    UserDetailDTO dto = mapToDTOWithDistance(d, distance);
+
+                    System.out.println("🧑‍⚕️ DTO generado: " + dto);
+
+                    return dto;
                 })
                 .sorted((a, b) ->
                         Double.compare(a.distanceKm(), b.distanceKm()))
                 .toList();
+
+        System.out.println("📦 TOTAL DOCTORES ENVIADOS: " + result.size());
+
+        return result;
     }
 
 }

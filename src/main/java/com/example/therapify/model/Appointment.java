@@ -62,11 +62,9 @@ public class Appointment {
     public LocalTime getEndTime() { return endTime; }
     public void setEndTime(LocalTime endTime) { this.endTime = endTime; }
 
-
     public Status getStatus() {
         return status;
     }
-
     public void setStatus(Status status) {
         this.status = status;
     }
@@ -82,7 +80,6 @@ public class Appointment {
     public User getPatient() { return patient; }
     public void setPatient(User patient) { this.patient = patient; }
 
-    // ----------- toString -----------
 
     @Override
     public String toString() {

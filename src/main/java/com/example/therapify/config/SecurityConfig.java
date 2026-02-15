@@ -83,11 +83,8 @@
 
                             .requestMatchers("/admin/**").hasRole("ADMIN")
 
-                            // 🔒 TODO LO DEMÁS
                             .anyRequest().authenticated()
                     )
-
-                    // ⚠️ JWT DESPUÉS DE DEFINIR PERMISOS
                     .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
 
                     .formLogin(AbstractHttpConfigurer::disable)

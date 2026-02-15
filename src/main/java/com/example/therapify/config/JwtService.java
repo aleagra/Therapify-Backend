@@ -16,7 +16,6 @@ public class JwtService {
 
     public String create(String username, String role) {
 
-        // Limpia por si viene ROLE_DOCTOR
         String cleanRole = role.replace("ROLE_", "");
 
         return JWT.create()

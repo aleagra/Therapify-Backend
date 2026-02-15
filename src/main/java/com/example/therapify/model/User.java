@@ -1,5 +1,6 @@
 package com.example.therapify.model;
 
+import com.example.therapify.enums.Specialty;
 import com.example.therapify.enums.UserType;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -66,6 +67,13 @@ public class User implements UserDetails {
     @OneToMany(mappedBy = "patient")
     private List<Review> resenasCreadas;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "specialty")
+    private Specialty specialty;
+
+    @Column(name = "consultation_price")
+    private Double consultationPrice;
+
     @Override
     public boolean isEnabled() {
         return enabled;
@@ -128,6 +136,22 @@ public class User implements UserDetails {
 
     public UserType getUserType() { return userType; }
     public void setUserType(UserType userType) { this.userType = userType; }
+
+    public Specialty getSpecialty() {
+        return specialty;
+    }
+
+    public void setSpecialty(Specialty specialty) {
+        this.specialty = specialty;
+    }
+
+    public Double getConsultationPrice() {
+        return consultationPrice;
+    }
+
+    public void setConsultationPrice(Double consultationPrice) {
+        this.consultationPrice = consultationPrice;
+    }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
