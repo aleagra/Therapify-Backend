@@ -55,16 +55,16 @@ public class User implements UserDetails {
     private String description;
     private boolean enabled;
 
-    @OneToMany(mappedBy = "doctor")
+    @OneToMany(mappedBy = "doctor", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private List<Appointment> turnosComoDoctor;
 
-    @OneToMany(mappedBy = "patient")
+    @OneToMany(mappedBy = "patient", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private List<Appointment> turnosComoPaciente;
 
-    @OneToMany(mappedBy = "doctor")
+    @OneToMany(mappedBy = "doctor", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private List<Review> resenasRecibidas;
 
-    @OneToMany(mappedBy = "patient")
+    @OneToMany(mappedBy = "patient", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private List<Review> resenasCreadas;
 
     @Enumerated(EnumType.STRING)

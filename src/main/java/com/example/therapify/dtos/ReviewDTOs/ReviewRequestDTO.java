@@ -11,6 +11,15 @@ public class ReviewRequestDTO {
     @Size(max = 255, message = "El comentario no puede superar los 255 caracteres")
     private String comment;
 
+    @Override
+    public String toString() {
+        return "ReviewRequestDTO{" +
+                "doctorId=" + doctorId +
+                ", comment='" + comment + '\'' +
+                ", value=" + value +
+                '}';
+    }
+
     @NotNull(message = "La valoración es obligatoria")
     @Min(value = 1, message = "La valoración debe ser al menos 1")
     @Max(value = 5, message = "La valoración no puede superar 5")

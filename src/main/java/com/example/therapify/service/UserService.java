@@ -8,9 +8,7 @@ import com.example.therapify.enums.UserType;
 import com.example.therapify.model.EmailVerificationToken;
 import com.example.therapify.model.PasswordResetToken;
 import com.example.therapify.model.User;
-import com.example.therapify.repository.EmailVerificationTokenRepository;
-import com.example.therapify.repository.PasswordResetTokenRepository;
-import com.example.therapify.repository.UserRepository;
+import com.example.therapify.repository.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -43,10 +41,12 @@ public class UserService implements UserDetailsService {
     private final GeocodingService geocodingService;
     private final EmailService emailService;
     private final EmailVerificationTokenRepository emailTokenRepository;
+    private final AppointmentRepository appointmentRepository;
+    private final ReviewRepository reviewRepository;
 
 
     @Autowired
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, PasswordResetTokenRepository tokenRepository, GeocodingService geocodingService, EmailService emailService, EmailVerificationTokenRepository emailTokenRepository) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, PasswordResetTokenRepository tokenRepository, GeocodingService geocodingService, EmailService emailService, EmailVerificationTokenRepository emailTokenRepository, AppointmentRepository appointmentRepository, ReviewRepository reviewRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -54,6 +54,8 @@ public class UserService implements UserDetailsService {
         this.geocodingService = geocodingService;
         this.emailService = emailService;
         this.emailTokenRepository = emailTokenRepository;
+        this.appointmentRepository = appointmentRepository;
+        this.reviewRepository = reviewRepository;
     }
 
     @PreAuthorize("permitAll()")
@@ -463,17 +465,31 @@ public class UserService implements UserDetailsService {
 
                     UserDetailDTO dto = mapToDTOWithDistance(d, distance);
 
-                    System.out.println("🧑‍⚕️ DTO generado: " + dto);
-
                     return dto;
                 })
                 .sorted((a, b) ->
                         Double.compare(a.distanceKm(), b.distanceKm()))
                 .toList();
 
-        System.out.println("📦 TOTAL DOCTORES ENVIADOS: " + result.size());
-
         return result;
     }
+    @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, String>> eliminarUsuarioConDatos(Long id) {
+        User u = userRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("No existe usuario con ID " + id));
+
+        // Borrar todas las citas donde es doctor o paciente
+        appointmentRepository.deleteByDoctorOrPatient(u, u);
+
+        // Borrar todas las reseñas creadas o recibidas
+        reviewRepository.deleteByDoctorOrPatient(u, u);
+
+        // Finalmente borrar el usuario
+        userRepository.delete(u);
+
+        return ResponseEntity.ok(Map.of("mensaje", "Usuario y datos asociados eliminados correctamente"));
+    }
+
 
 }

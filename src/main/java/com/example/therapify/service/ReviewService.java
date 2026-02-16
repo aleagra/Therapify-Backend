@@ -41,12 +41,12 @@ public class ReviewService {
             );
         }
 
-        boolean hadAppointment =
-                appointmentRepository.existsByPatientAndDoctorAndStatus(
-                        patient,
-                        doctor,
-                        Status.COMPLETED
-                );
+        boolean hadAppointment = appointmentRepository.existsByPatientIdAndDoctorIdAndStatus(
+                patient.getId(),
+                doctor.getId(),
+                Status.COMPLETED
+        );
+        System.out.println("💬 Had appointment? " + hadAppointment);
 
         if (!hadAppointment) {
             throw new IllegalArgumentException(
@@ -60,6 +60,8 @@ public class ReviewService {
         review.setPatient(patient);
         review.setDoctor(doctor);
         reviewRepository.save(review);
+
+        System.out.println("💬 Review guardada con ID: " + review.getId());
 
         return toDetailDTO(review);
     }

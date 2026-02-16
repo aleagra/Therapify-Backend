@@ -99,7 +99,11 @@ public class UserController {
                 userService.findDoctorsNear(lat, lng)
         );
     }
-
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{id}/cascade")
+    public ResponseEntity<Map<String, String>> eliminarUsuarioConDatos(@PathVariable Long id) {
+        return userService.eliminarUsuarioConDatos(id);
+    }
 
 
 }
