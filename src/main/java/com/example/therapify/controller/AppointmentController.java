@@ -39,7 +39,7 @@ public class AppointmentController {
         );
     }
 
-    @PreAuthorize("hasAnyRole('DOCTOR')")
+    @PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Boolean> deleteAppointment(@PathVariable Long id) {
         boolean deleted = appointmentService.deleteAppointment(id);
