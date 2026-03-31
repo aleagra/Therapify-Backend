@@ -3,6 +3,7 @@ package com.example.therapify.service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -38,5 +39,51 @@ public class EmailService {
         );
 
         mailSender.send(mail);
+    }
+    @Async
+    public void sendAppointmentConfirmation(
+            String patientEmail,
+            String doctorEmail,
+            String patientName,
+            String doctorName,
+            String date,
+            String startTime,
+            String endTime
+    ) {
+
+        String subject = "Confirmación de turno - Therapify";
+
+        String textForPatient =
+                "Hola " + patientName + ",\n\n" +
+                        "Tu turno fue reservado correctamente.\n\n" +
+                        "Doctor: " + doctorName + "\n" +
+                        "Fecha: " + date + "\n" +
+                        "Horario: " + startTime + " - " + endTime + "\n\n" +
+                        "Estado: PENDIENTE\n\n" +
+                        "Gracias por confiar en Therapify.";
+
+        String textForDoctor =
+                "Hola Dr/a. " + doctorName + ",\n\n" +
+                        "Se ha reservado un nuevo turno.\n\n" +
+                        "Paciente: " + patientName + "\n" +
+                        "Fecha: " + date + "\n" +
+                        "Horario: " + startTime + " - " + endTime + "\n\n" +
+                        "Estado: PENDIENTE\n\n" +
+                        "Revisalo desde tu panel.";
+
+        SimpleMailMessage mailToPatient = new SimpleMailMessage();
+        mailToPatient.setFrom("therapify.app@gmail.com");
+        mailToPatient.setTo(patientEmail);
+        mailToPatient.setSubject(subject);
+        mailToPatient.setText(textForPatient);
+
+        SimpleMailMessage mailToDoctor = new SimpleMailMessage();
+        mailToDoctor.setFrom("therapify.app@gmail.com");
+        mailToDoctor.setTo(doctorEmail);
+        mailToDoctor.setSubject(subject);
+        mailToDoctor.setText(textForDoctor);
+
+        mailSender.send(mailToPatient);
+        mailSender.send(mailToDoctor);
     }
 }

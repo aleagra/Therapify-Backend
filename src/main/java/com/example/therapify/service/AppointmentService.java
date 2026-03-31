@@ -22,6 +22,8 @@ public class AppointmentService {
 
     @Autowired
     private UserService userService;
+    @Autowired
+    private EmailService emailService;
 
     public AppointmentDetailDTO createAppointment(AppointmentRequestDTO dto) {
 
@@ -52,6 +54,16 @@ public class AppointmentService {
         ap.setStatus(Status.PENDING);
 
         appointmentRepository.save(ap);
+
+        emailService.sendAppointmentConfirmation(
+                patient.getEmail(),
+                doctor.getEmail(),
+                patient.getFirstName() + " " + patient.getLastName(),
+                doctor.getFirstName() + " " + doctor.getLastName(),
+                date.toString(),
+                startTime.toString(),
+                endTime.toString()
+        );
 
         return toDetailDTO(ap);
     }
