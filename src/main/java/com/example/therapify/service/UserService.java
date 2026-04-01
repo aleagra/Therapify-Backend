@@ -143,7 +143,7 @@ public class UserService implements UserDetailsService {
         emailTokenRepository.save(verificationToken);
 
         String link =
-                "http://localhost:4200/verify-email?token=" + token;
+                "https://therapifyy.vercel.app/verify-email?token=" + token;
 
         try {
             emailService.sendEmailVerification(saved.getEmail(), link);

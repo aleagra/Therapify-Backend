@@ -91,7 +91,7 @@ public class AuthController {
         String token = userService.createPasswordResetToken(user);
 
         String link =
-                "http://localhost:4200/reset-password?token=" + token;
+                "https://therapifyy.vercel.app/reset-password?token=" + token;
 
         emailService.sendResetPassword(
                 user.getEmail(),

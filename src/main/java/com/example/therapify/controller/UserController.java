@@ -17,7 +17,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/usuarios")
-@CrossOrigin(origins = "http://localhost:4200")
+@CrossOrigin(origins = {"http://localhost:4200", "https://therapifyy.vercel.app"})
 public class UserController {
 
     @Autowired
