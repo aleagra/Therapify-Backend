@@ -40,7 +40,13 @@ public class EmailService {
                         "Si no creaste esta cuenta, puedes ignorar este mensaje."
         );
 
-        mailSender.send(mail);
+        try {
+            mailSender.send(mail);
+            System.out.println("✅ Email de verificación enviado a " + to);
+        } catch (Exception e) {
+            System.err.println("❌ Error enviando email de verificación a " + to + ": " + e.getMessage());
+            e.printStackTrace();
+        }
     }
     @Async
     public void sendAppointmentConfirmation(
@@ -85,7 +91,13 @@ public class EmailService {
         mailToDoctor.setSubject(subject);
         mailToDoctor.setText(textForDoctor);
 
-        mailSender.send(mailToPatient);
-        mailSender.send(mailToDoctor);
+        try {
+            mailSender.send(mailToPatient);
+            mailSender.send(mailToDoctor);
+            System.out.println("✅ Emails de confirmación de turno enviados");
+        } catch (Exception e) {
+            System.err.println("❌ Error enviando emails de confirmación de turno: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }
