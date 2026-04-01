@@ -12,10 +12,11 @@ public class EmailService {
     @Autowired
     private JavaMailSender mailSender;
 
+    @Async
     public void sendResetPassword(String to, String link) {
 
         SimpleMailMessage mail = new SimpleMailMessage();
-        mail.setFrom("therapify.app@gmail.com");
+        mail.setFrom("therapifyy@gmail.com");
         mail.setTo(to);
         mail.setSubject("Recuperar contraseña");
         mail.setText(
@@ -25,6 +26,7 @@ public class EmailService {
 
         mailSender.send(mail);
     }
+    @Async
     public void sendEmailVerification(String to, String link) {
 
         SimpleMailMessage mail = new SimpleMailMessage();
@@ -72,13 +74,13 @@ public class EmailService {
                         "Revisalo desde tu panel.";
 
         SimpleMailMessage mailToPatient = new SimpleMailMessage();
-        mailToPatient.setFrom("therapify.app@gmail.com");
+        mailToPatient.setFrom("therapifyy@gmail.com");
         mailToPatient.setTo(patientEmail);
         mailToPatient.setSubject(subject);
         mailToPatient.setText(textForPatient);
 
         SimpleMailMessage mailToDoctor = new SimpleMailMessage();
-        mailToDoctor.setFrom("therapify.app@gmail.com");
+        mailToDoctor.setFrom("therapifyy@gmail.com");
         mailToDoctor.setTo(doctorEmail);
         mailToDoctor.setSubject(subject);
         mailToDoctor.setText(textForDoctor);
