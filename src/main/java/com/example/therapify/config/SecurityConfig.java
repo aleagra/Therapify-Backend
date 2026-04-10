@@ -63,7 +63,7 @@
 
                             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                            .requestMatchers("/auth/**").permitAll()
+                            .requestMatchers("/auth/**", "/health").permitAll()
 
                             .requestMatchers(HttpMethod.POST, "/usuarios").permitAll()
 
