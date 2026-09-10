@@ -60,6 +60,7 @@ public class ReviewService {
         review.setPatient(patient);
         review.setDoctor(doctor);
         reviewRepository.save(review);
+        userService.evictDoctorCaches(doctor.getId());
 
         System.out.println("💬 Review guardada con ID: " + review.getId());
 
@@ -85,6 +86,7 @@ public class ReviewService {
         review.setValue(dto.getValue());
 
         reviewRepository.save(review);
+        userService.evictDoctorCaches(review.getDoctor().getId());
 
         return toDetailDTO(review);
     }
@@ -134,7 +136,9 @@ public class ReviewService {
             throw new AccessDeniedException("No tenés permiso para eliminar esta review");
         }
 
+        Long doctorId = review.getDoctor().getId();
         reviewRepository.delete(review);
+        userService.evictDoctorCaches(doctorId);
 
         return ResponseEntity.ok(
                 Map.of("message", "Review eliminada correctamente")

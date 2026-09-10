@@ -9,7 +9,11 @@ import com.example.therapify.model.Appointment;
 import com.example.therapify.model.User;
 import com.example.therapify.repository.AppointmentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -25,6 +29,9 @@ public class AppointmentService {
     @Autowired
     private EmailService emailService;
 
+    public enum AppointmentTimeFilter { UPCOMING, PAST }
+
+    @Transactional
     public AppointmentDetailDTO createAppointment(AppointmentRequestDTO dto) {
 
         User patient = userService.getAuthenticatedUser();
@@ -53,7 +60,16 @@ public class AppointmentService {
         ap.setEndTime(endTime);
         ap.setStatus(Status.PENDING);
 
-        appointmentRepository.save(ap);
+        try {
+            // The exists-check above is not race-proof under concurrent requests for the
+            // same slot; the DB unique constraint on (doctor_id, date, start_time) is the
+            // real guard, and this catch turns that violation into a 409 instead of a 500.
+            appointmentRepository.save(ap);
+        } catch (DataIntegrityViolationException e) {
+            throw new AppointmentConflictException("Ese horario ya está reservado.");
+        }
+
+        userService.evictDoctorCaches(doctor.getId());
 
         emailService.sendAppointmentConfirmation(
                 patient.getEmail(),
@@ -68,25 +84,27 @@ public class AppointmentService {
         return toDetailDTO(ap);
     }
 
-    public List<AppointmentListDTO> getMyAppointments() {
-
+    public Page<AppointmentListDTO> getMyAppointments(
+            AppointmentTimeFilter timeFilter,
+            Status status,
+            Pageable pageable
+    ) {
         User user = userService.getAuthenticatedUser();
+        boolean isAdmin = user.getUserType().name().equals("ADMIN");
 
-        String role = user.getUserType().name();
-
-        if (role.equals("ADMIN")) {
-            return appointmentRepository
-                    .findAll()
-                    .stream()
-                    .map(this::toListDTO)
-                    .toList();
-        }
+        LocalDate today = LocalDate.now();
+        LocalDate fromDate = timeFilter == AppointmentTimeFilter.UPCOMING ? today : null;
+        LocalDate toDate = timeFilter == AppointmentTimeFilter.PAST ? today : null;
 
         return appointmentRepository
-                .findByDoctorIdOrPatientId(user.getId(), user.getId())
-                .stream()
-                .map(this::toListDTO)
-                .toList();
+                .findMyAppointments(
+                        isAdmin ? null : user.getId(),
+                        fromDate,
+                        toDate,
+                        status,
+                        pageable
+                )
+                .map(this::toListDTO);
     }
 
     public AppointmentDetailDTO updateAppointmentStatus(Long id, String statusStr) {
@@ -96,6 +114,7 @@ public class AppointmentService {
         Status status = Status.valueOf(statusStr);
         ap.setStatus(status);
         appointmentRepository.save(ap);
+        userService.evictDoctorCaches(ap.getDoctor().getId());
 
         return toDetailDTO(ap);
     }
@@ -104,7 +123,9 @@ public class AppointmentService {
         Appointment ap = appointmentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Turno no encontrado"));
 
+        Long doctorId = ap.getDoctor().getId();
         appointmentRepository.delete(ap);
+        userService.evictDoctorCaches(doctorId);
         return true;
     }
 
@@ -146,11 +167,14 @@ public class AppointmentService {
         dto.setPatientId(ap.getPatient().getId());
         dto.setCreatedAt(ap.getCreatedAt().toString());
 
-        User patient = userService.findEntityById(ap.getPatient().getId());
+        // ap.getPatient()/ap.getDoctor() are already loaded associations — no need for
+        // extra findEntityById lookups (that was a per-row N+1 on every appointment list).
+        User patient = ap.getPatient();
         dto.setPatientName(patient.getFirstName() + " " + patient.getLastName());
 
-        User doctor = userService.findEntityById(ap.getDoctor().getId());
+        User doctor = ap.getDoctor();
         dto.setDoctorName(doctor.getFirstName() + " " + doctor.getLastName());
+        dto.setDoctorSpecialty(doctor.getSpecialty() != null ? doctor.getSpecialty().name() : null);
 
         return dto;
     }

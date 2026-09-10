@@ -9,8 +9,17 @@ public class AppointmentListDTO {
     private Long doctorId;
     private Long patientId;
     private String doctorName;
+    private String doctorSpecialty;
     private String patientName;
     private String createdAt;
+
+    public String getDoctorSpecialty() {
+        return doctorSpecialty;
+    }
+
+    public void setDoctorSpecialty(String doctorSpecialty) {
+        this.doctorSpecialty = doctorSpecialty;
+    }
 
     public Long getId() {
         return id;

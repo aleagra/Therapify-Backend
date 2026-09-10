@@ -1,6 +1,7 @@
 package com.example.therapify.dtos.UserDTOs;
 import com.example.therapify.enums.Specialty;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -20,5 +21,9 @@ public record UserDetailDTO(
         String specialty,
         Map<String, Boolean> schedule,
         Map<String, List<String>> availability,
-        Double consultationPrice
+        Double consultationPrice,
+        Double averageRating,
+        Integer totalReviews,
+        Integer availableSlotsCount,
+        List<LocalDate> nextAvailableDates
 ) {}

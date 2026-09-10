@@ -7,7 +7,6 @@ public class ReviewRequestDTO {
     @NotNull(message = "El ID del doctor es obligatorio")
     private Long doctorId;
 
-    @NotBlank(message = "El comentario no puede estar vacío")
     @Size(max = 255, message = "El comentario no puede superar los 255 caracteres")
     private String comment;
 

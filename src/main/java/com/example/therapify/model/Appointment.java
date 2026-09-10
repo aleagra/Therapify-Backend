@@ -7,7 +7,17 @@ import java.time.LocalTime;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "appointments")
+@Table(name = "appointments",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_appointments_doctor_date_start",
+                        columnNames = {"doctor_id", "date", "start_time"}
+                )
+        },
+        indexes = {
+                @Index(name = "idx_appointments_doctor_id_date", columnList = "doctor_id, date")
+        }
+)
 public class Appointment {
 
     @Id

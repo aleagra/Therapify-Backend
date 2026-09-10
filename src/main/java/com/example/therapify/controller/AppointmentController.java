@@ -3,8 +3,14 @@ package com.example.therapify.controller;
 import com.example.therapify.dtos.AppointmentDTOs.AppointmentDetailDTO;
 import com.example.therapify.dtos.AppointmentDTOs.AppointmentListDTO;
 import com.example.therapify.dtos.AppointmentDTOs.AppointmentRequestDTO;
+import com.example.therapify.enums.Status;
 import com.example.therapify.service.AppointmentService;
+import com.example.therapify.service.AppointmentService.AppointmentTimeFilter;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -33,9 +39,16 @@ public class AppointmentController {
 
     @PreAuthorize("hasAnyRole('PACIENTE','DOCTOR','ADMIN')")
     @GetMapping("/mine")
-    public ResponseEntity<List<AppointmentListDTO>> getMyAppointments() {
+    public ResponseEntity<Page<AppointmentListDTO>> getMyAppointments(
+            @RequestParam(required = false) AppointmentTimeFilter filter,
+            @RequestParam(required = false) Status status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("date").descending().and(Sort.by("startTime").descending()));
+
         return ResponseEntity.ok(
-                appointmentService.getMyAppointments()
+                appointmentService.getMyAppointments(filter, status, pageable)
         );
     }
 

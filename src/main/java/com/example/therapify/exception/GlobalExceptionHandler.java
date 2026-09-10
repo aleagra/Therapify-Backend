@@ -9,6 +9,14 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(AppointmentConflictException.class)
+    public ResponseEntity<Map<String, String>> handleAppointmentConflictException(AppointmentConflictException ex) {
+        Map<String, String> respuesta = new HashMap<>();
+        respuesta.put("error", "Turno no disponible");
+        respuesta.put("mensaje", ex.getMessage());
+        return new ResponseEntity<>(respuesta, HttpStatus.CONFLICT);
+    }
+
     @ExceptionHandler(ReviewNotFoundException.class)
     public ResponseEntity<Map<String, String>> manejarResenaNoEncontrada(ReviewNotFoundException ex) {
         Map<String, String> respuesta = new HashMap<>();

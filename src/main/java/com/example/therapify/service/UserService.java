@@ -2,6 +2,7 @@ package com.example.therapify.service;
 
 import com.example.therapify.config.GeoUtils;
 import com.example.therapify.config.JwtService;
+import com.example.therapify.dtos.ReviewDTOs.DoctorRatingStats;
 import com.example.therapify.dtos.UserDTOs.UserDetailDTO;
 import com.example.therapify.dtos.UserDTOs.UserRequestDTO;
 import com.example.therapify.enums.UserType;
@@ -9,12 +10,16 @@ import com.example.therapify.model.EmailVerificationToken;
 import com.example.therapify.model.PasswordResetToken;
 import com.example.therapify.model.User;
 import com.example.therapify.repository.*;
+import com.example.therapify.util.AvailabilityCalculator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,8 +32,11 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class UserService implements UserDetailsService {
@@ -43,16 +51,18 @@ public class UserService implements UserDetailsService {
     private final EmailVerificationTokenRepository emailTokenRepository;
     private final AppointmentRepository appointmentRepository;
     private final ReviewRepository reviewRepository;
+    private final CacheManager cacheManager;
 
 
     @Autowired
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, PasswordResetTokenRepository tokenRepository, GeocodingService geocodingService, EmailService emailService, EmailVerificationTokenRepository emailTokenRepository, AppointmentRepository appointmentRepository, ReviewRepository reviewRepository) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, PasswordResetTokenRepository tokenRepository, GeocodingService geocodingService, EmailService emailService, EmailVerificationTokenRepository emailTokenRepository, AppointmentRepository appointmentRepository, ReviewRepository reviewRepository, CacheManager cacheManager) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.tokenRepository = tokenRepository;
         this.geocodingService = geocodingService;
         this.emailService = emailService;
+        this.cacheManager = cacheManager;
         this.emailTokenRepository = emailTokenRepository;
         this.appointmentRepository = appointmentRepository;
         this.reviewRepository = reviewRepository;
@@ -155,7 +165,83 @@ public class UserService implements UserDetailsService {
         return mapToDTO(saved);
     }
 
-    private UserDetailDTO mapToDTO(User u) {
+    private static final int AVAILABILITY_WINDOW_DAYS = 30;
+    private static final int MAX_NEXT_AVAILABLE_DATES = 5;
+
+    private record DoctorStats(
+            double averageRating,
+            int totalReviews,
+            int availableSlotsCount,
+            List<LocalDate> nextAvailableDates
+    ) {
+        static DoctorStats empty() {
+            return new DoctorStats(0.0, 0, 0, List.of());
+        }
+    }
+
+    /**
+     * Batch-computes rating average/count and available-slots stats for every DOCTOR in
+     * {@code users}, using at most 2 extra queries total (not per-doctor), to avoid N+1.
+     */
+    private Map<Long, DoctorStats> computeDoctorStats(List<User> users) {
+
+        Map<Long, User> doctorsById = users.stream()
+                .filter(u -> u.getUserType() == UserType.DOCTOR)
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+
+        if (doctorsById.isEmpty()) return Map.of();
+
+        List<Long> doctorIds = new ArrayList<>(doctorsById.keySet());
+
+        Map<Long, DoctorRatingStats> ratingByDoctor = reviewRepository
+                .findRatingStatsByDoctorIds(doctorIds)
+                .stream()
+                .collect(Collectors.toMap(DoctorRatingStats::doctorId, Function.identity()));
+
+        LocalDate today = LocalDate.now();
+        LocalDate windowEnd = today.plusDays(AVAILABILITY_WINDOW_DAYS);
+
+        Map<Long, Set<String>> bookedSlotsByDoctor = appointmentRepository
+                .findBookedSlots(doctorIds, today, windowEnd)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        b -> b.getDoctorId(),
+                        Collectors.mapping(
+                                b -> AvailabilityCalculator.slotKey(b.getDate(), b.getStartTime()),
+                                Collectors.toSet()
+                        )
+                ));
+
+        Map<Long, DoctorStats> result = new HashMap<>();
+
+        for (Long doctorId : doctorIds) {
+            DoctorRatingStats rating = ratingByDoctor.get(doctorId);
+
+            double averageRating = (rating != null && rating.averageRating() != null)
+                    ? Math.round(rating.averageRating() * 10) / 10.0
+                    : 0.0;
+            int totalReviews = rating != null ? rating.totalReviews().intValue() : 0;
+
+            AvailabilityCalculator.Result availability = AvailabilityCalculator.compute(
+                    doctorsById.get(doctorId).getAvailabilityMap(),
+                    bookedSlotsByDoctor.getOrDefault(doctorId, Set.of()),
+                    today,
+                    windowEnd,
+                    MAX_NEXT_AVAILABLE_DATES
+            );
+
+            result.put(doctorId, new DoctorStats(
+                    averageRating,
+                    totalReviews,
+                    availability.availableSlotsCount(),
+                    availability.nextAvailableDates()
+            ));
+        }
+
+        return result;
+    }
+
+    private UserDetailDTO mapToDTO(User u, Map<Long, DoctorStats> statsByDoctorId) {
 
         Map<String, Boolean> scheduleMap = null;
         Map<String, List<String>> availabilityMap = null;
@@ -183,6 +269,10 @@ public class UserService implements UserDetailsService {
             }
         }
 
+        DoctorStats stats = u.getUserType() == UserType.DOCTOR
+                ? statsByDoctorId.getOrDefault(u.getId(), DoctorStats.empty())
+                : null;
+
         return new UserDetailDTO(
                 u.getId(),
                 u.getFirstName(),
@@ -199,12 +289,20 @@ public class UserService implements UserDetailsService {
                 u.getSpecialty() != null ? u.getSpecialty().name() : null,
                 scheduleMap,
                 availabilityMap,
-                u.getConsultationPrice()
+                u.getConsultationPrice(),
+                stats != null ? stats.averageRating() : null,
+                stats != null ? stats.totalReviews() : null,
+                stats != null ? stats.availableSlotsCount() : null,
+                stats != null ? stats.nextAvailableDates() : null
         );
     }
 
+    private UserDetailDTO mapToDTO(User u) {
+        return mapToDTO(u, computeDoctorStats(List.of(u)));
+    }
 
-    private UserDetailDTO mapToDTOWithDistance(User u, double distance) {
+
+    private UserDetailDTO mapToDTOWithDistance(User u, double distance, Map<Long, DoctorStats> statsByDoctorId) {
 
         Map<String, Boolean> scheduleMap = null;
 
@@ -224,6 +322,10 @@ public class UserService implements UserDetailsService {
                         ? u.getAvailabilityMap()
                         : null;
 
+        DoctorStats stats = u.getUserType() == UserType.DOCTOR
+                ? statsByDoctorId.getOrDefault(u.getId(), DoctorStats.empty())
+                : null;
+
         return new UserDetailDTO(
                 u.getId(),
                 u.getFirstName(),
@@ -240,8 +342,25 @@ public class UserService implements UserDetailsService {
                 u.getSpecialty() != null ? u.getSpecialty().name() : null,
                 scheduleMap,
                 availabilityMap,
-                u.getConsultationPrice()
+                u.getConsultationPrice(),
+                stats != null ? stats.averageRating() : null,
+                stats != null ? stats.totalReviews() : null,
+                stats != null ? stats.availableSlotsCount() : null,
+                stats != null ? stats.nextAvailableDates() : null
         );
+    }
+
+    /**
+     * Invalidates the cached doctor detail/listing entries affected by a profile,
+     * appointment, or review change for this user. Programmatic (not @CacheEvict)
+     * because the affected id/doctor isn't always a direct method parameter here.
+     */
+    public void evictDoctorCaches(Long userId) {
+        Cache userDetailCache = cacheManager.getCache("userDetail");
+        if (userDetailCache != null) userDetailCache.evict(userId);
+
+        Cache doctorListingsCache = cacheManager.getCache("doctorListings");
+        if (doctorListingsCache != null) doctorListingsCache.clear();
     }
 
     public User getAuthenticatedUser() {
@@ -251,8 +370,10 @@ public class UserService implements UserDetailsService {
     }
 
     public List<UserDetailDTO> listarUsuarios() {
-        return userRepository.findAll().stream()
-                .map(this::mapToDTO)
+        List<User> users = userRepository.findAll();
+        Map<Long, DoctorStats> stats = computeDoctorStats(users);
+        return users.stream()
+                .map(u -> mapToDTO(u, stats))
                 .toList();
     }
 
@@ -344,6 +465,7 @@ public class UserService implements UserDetailsService {
         }
 
         User updatedUser = userRepository.save(u);
+        evictDoctorCaches(updatedUser.getId());
         String newToken = jwtService.create(
                 updatedUser.getEmail(),
                 updatedUser.getUserType().name()
@@ -363,27 +485,37 @@ public class UserService implements UserDetailsService {
         User u = userRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("No existe usuario con ID " + id));
         userRepository.delete(u);
+        evictDoctorCaches(id);
 
         Map<String, String> res = new HashMap<>();
         res.put("mensaje", "Usuario eliminado correctamente");
         return ResponseEntity.ok(res);
     }
 
+    @Cacheable(value = "doctorListings", key = "'byType:' + #type")
     public List<UserDetailDTO> findByUserType(String type) {
-        return userRepository.findByUserType(UserType.valueOf(type)).stream()
-                .map(this::mapToDTO)
+        List<User> users = userRepository.findByUserType(UserType.valueOf(type));
+        Map<Long, DoctorStats> stats = computeDoctorStats(users);
+        return users.stream()
+                .map(u -> mapToDTO(u, stats))
                 .toList();
     }
 
+    @Cacheable(value = "doctorListings", key = "'byFirstName:' + #firstName")
     public List<UserDetailDTO> findByFirstName(String firstName) {
-        return userRepository.findByFirstName(firstName).stream()
-                .map(this::mapToDTO)
+        List<User> users = userRepository.findByFirstName(firstName);
+        Map<Long, DoctorStats> stats = computeDoctorStats(users);
+        return users.stream()
+                .map(u -> mapToDTO(u, stats))
                 .toList();
     }
 
+    @Cacheable(value = "doctorListings", key = "'byLastName:' + #lastName")
     public List<UserDetailDTO> findByLastName(String lastName) {
-        return userRepository.findByLastName(lastName).stream()
-                .map(this::mapToDTO)
+        List<User> users = userRepository.findByLastName(lastName);
+        Map<Long, DoctorStats> stats = computeDoctorStats(users);
+        return users.stream()
+                .map(u -> mapToDTO(u, stats))
                 .toList();
     }
 
@@ -410,6 +542,7 @@ public class UserService implements UserDetailsService {
         return userRepository.save(user);
     }
 
+    @Cacheable(value = "userDetail", key = "#id")
     public UserDetailDTO buscarPorId(Long id) {
         User u = userRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado"));
@@ -450,11 +583,18 @@ public class UserService implements UserDetailsService {
         return true;
     }
 
+    @Cacheable(value = "doctorListings", key = "'near:' + #lat + ':' + #lng")
     public List<UserDetailDTO> findDoctorsNear(double lat, double lng) {
 
-        List<UserDetailDTO> result = userRepository.findByUserType(UserType.DOCTOR)
+        List<User> doctors = userRepository.findByUserType(UserType.DOCTOR)
                 .stream()
                 .filter(d -> d.getLatitude() != null && d.getLongitude() != null)
+                .toList();
+
+        Map<Long, DoctorStats> stats = computeDoctorStats(doctors);
+
+        List<UserDetailDTO> result = doctors
+                .stream()
                 .map(d -> {
 
                     double distance = GeoUtils.distanceKm(
@@ -463,9 +603,7 @@ public class UserService implements UserDetailsService {
                             d.getLongitude()
                     );
 
-                    UserDetailDTO dto = mapToDTOWithDistance(d, distance);
-
-                    return dto;
+                    return mapToDTOWithDistance(d, distance, stats);
                 })
                 .sorted((a, b) ->
                         Double.compare(a.distanceKm(), b.distanceKm()))
@@ -487,6 +625,7 @@ public class UserService implements UserDetailsService {
 
         // Finalmente borrar el usuario
         userRepository.delete(u);
+        evictDoctorCaches(id);
 
         return ResponseEntity.ok(Map.of("mensaje", "Usuario y datos asociados eliminados correctamente"));
     }
