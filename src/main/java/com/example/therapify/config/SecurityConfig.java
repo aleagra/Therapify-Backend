@@ -83,7 +83,8 @@
 
                             .requestMatchers("/admin/**").hasRole("ADMIN")
 
-                            .requestMatchers(HttpMethod.POST, "/api/demo/reset")
+                            // /demo/reset is canonical; /api/demo/reset is the deprecated alias.
+                            .requestMatchers(HttpMethod.POST, "/demo/reset", "/api/demo/reset")
                             .hasAnyRole("PACIENTE","DOCTOR","ADMIN")
 
                             .anyRequest().authenticated()

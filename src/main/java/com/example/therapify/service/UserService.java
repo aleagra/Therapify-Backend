@@ -1,7 +1,9 @@
 package com.example.therapify.service;
 
+import com.example.therapify.config.DemoGuard;
 import com.example.therapify.config.GeoUtils;
 import com.example.therapify.config.JwtService;
+import com.example.therapify.exception.AccessDeniedException;
 import com.example.therapify.dtos.ReviewDTOs.DoctorRatingStats;
 import com.example.therapify.dtos.UserDTOs.UserDetailDTO;
 import com.example.therapify.dtos.UserDTOs.UserRequestDTO;
@@ -31,6 +33,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -40,6 +44,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class UserService implements UserDetailsService {
+
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
     private final JwtService jwtService;
     private final UserRepository userRepository;
@@ -52,10 +58,12 @@ public class UserService implements UserDetailsService {
     private final AppointmentRepository appointmentRepository;
     private final ReviewRepository reviewRepository;
     private final CacheManager cacheManager;
+    private final DemoGuard demoGuard;
 
 
     @Autowired
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, PasswordResetTokenRepository tokenRepository, GeocodingService geocodingService, EmailService emailService, EmailVerificationTokenRepository emailTokenRepository, AppointmentRepository appointmentRepository, ReviewRepository reviewRepository, CacheManager cacheManager) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, PasswordResetTokenRepository tokenRepository, GeocodingService geocodingService, EmailService emailService, EmailVerificationTokenRepository emailTokenRepository, AppointmentRepository appointmentRepository, ReviewRepository reviewRepository, CacheManager cacheManager, DemoGuard demoGuard) {
+        this.demoGuard = demoGuard;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -293,7 +301,8 @@ public class UserService implements UserDetailsService {
                 stats != null ? stats.averageRating() : null,
                 stats != null ? stats.totalReviews() : null,
                 stats != null ? stats.availableSlotsCount() : null,
-                stats != null ? stats.nextAvailableDates() : null
+                stats != null ? stats.nextAvailableDates() : null,
+                demoGuard.isDemoAccount(u)
         );
     }
 
@@ -346,7 +355,8 @@ public class UserService implements UserDetailsService {
                 stats != null ? stats.averageRating() : null,
                 stats != null ? stats.totalReviews() : null,
                 stats != null ? stats.availableSlotsCount() : null,
-                stats != null ? stats.nextAvailableDates() : null
+                stats != null ? stats.nextAvailableDates() : null,
+                demoGuard.isDemoAccount(u)
         );
     }
 
@@ -385,17 +395,43 @@ public class UserService implements UserDetailsService {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado con email: " + email));
     }
+    /**
+     * Identity fields that a demo account may never change: rewriting any of them would lock
+     * every later evaluator out of the shared demo login until it's fixed by hand in the DB.
+     * Everything else (address, gender, specialty, price, schedule, availability, description)
+     * stays editable on purpose — that's what we want evaluators to try.
+     */
+    private static final List<String> DEMO_PROTECTED_FIELDS =
+            List.of("password", "email", "firstName", "lastName");
+
     public ResponseEntity<Map<String, Object>> modificarMiUsuario(UserRequestDTO req) {
 
         User u = getAuthenticatedUser();
 
-        if (req.getFirstName() != null)
+        // Ignore silently rather than reject: the UI already disables these inputs, so a 403
+        // would only be noise, and anyone bypassing the UI gets no signal that they hit a guard.
+        boolean isDemo = demoGuard.isDemoAccount(u);
+
+        if (isDemo) {
+            List<String> attempted = new ArrayList<>();
+            if (req.getPassword() != null && !req.getPassword().isBlank()) attempted.add("password");
+            if (req.getEmail() != null) attempted.add("email");
+            if (req.getFirstName() != null) attempted.add("firstName");
+            if (req.getLastName() != null) attempted.add("lastName");
+
+            if (!attempted.isEmpty()) {
+                log.warn("Intento de modificar campos protegidos {} en la cuenta demo {}; ignorado. Campos protegidos: {}",
+                        attempted, u.getEmail(), DEMO_PROTECTED_FIELDS);
+            }
+        }
+
+        if (!isDemo && req.getFirstName() != null)
             u.setFirstName(req.getFirstName());
 
-        if (req.getLastName() != null)
+        if (!isDemo && req.getLastName() != null)
             u.setLastName(req.getLastName());
 
-        if (req.getEmail() != null)
+        if (!isDemo && req.getEmail() != null)
             u.setEmail(req.getEmail());
 
         if (req.getCompanyName() != null)
@@ -430,7 +466,7 @@ public class UserService implements UserDetailsService {
             }
         }
 
-        if (req.getPassword() != null && !req.getPassword().isBlank()) {
+        if (!isDemo && req.getPassword() != null && !req.getPassword().isBlank()) {
             u.setPassword(passwordEncoder.encode(req.getPassword()));
         }
 
@@ -484,6 +520,7 @@ public class UserService implements UserDetailsService {
     public ResponseEntity<Map<String, String>> eliminarUsuario(Long id) {
         User u = userRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("No existe usuario con ID " + id));
+        rechazarSiEsCuentaDemo(u);
         userRepository.delete(u);
         evictDoctorCaches(id);
 
@@ -616,6 +653,7 @@ public class UserService implements UserDetailsService {
     public ResponseEntity<Map<String, String>> eliminarUsuarioConDatos(Long id) {
         User u = userRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("No existe usuario con ID " + id));
+        rechazarSiEsCuentaDemo(u);
 
         // Borrar todas las citas donde es doctor o paciente
         appointmentRepository.deleteByDoctorOrPatient(u, u);
@@ -630,5 +668,17 @@ public class UserService implements UserDetailsService {
         return ResponseEntity.ok(Map.of("mensaje", "Usuario y datos asociados eliminados correctamente"));
     }
 
+    /**
+     * Unlike the silent field filtering in {@link #modificarMiUsuario}, deleting a demo account
+     * is irreversible and must never fail quietly: surface it as a 403 (see GlobalExceptionHandler).
+     */
+    private void rechazarSiEsCuentaDemo(User u) {
+        if (demoGuard.isDemoAccount(u)) {
+            log.warn("Intento de eliminar la cuenta demo {}; rechazado.", u.getEmail());
+            throw new AccessDeniedException(
+                    "Las cuentas de demostración no pueden eliminarse."
+            );
+        }
+    }
 
 }

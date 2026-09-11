@@ -2,6 +2,7 @@ package com.example.therapify.controller;
 import com.example.therapify.dtos.UserDTOs.AuthRequest;
 import com.example.therapify.model.EmailVerificationToken;
 import com.example.therapify.model.User;
+import com.example.therapify.config.DemoGuard;
 import com.example.therapify.config.JwtService;
 import com.example.therapify.repository.EmailVerificationTokenRepository;
 import com.example.therapify.service.EmailService;
@@ -25,18 +26,21 @@ public class AuthController {
     private final UserService userService;
     private final EmailService emailService;
     private final EmailVerificationTokenRepository emailTokenRepository;
+    private final DemoGuard demoGuard;
 
     public AuthController(
             AuthenticationManager authenticationManager,
             JwtService jwtService,
             UserService userService,
-            EmailService emailService, EmailVerificationTokenRepository emailTokenRepository
+            EmailService emailService, EmailVerificationTokenRepository emailTokenRepository,
+            DemoGuard demoGuard
     ) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.userService = userService;
         this.emailService = emailService;
         this.emailTokenRepository = emailTokenRepository;
+        this.demoGuard = demoGuard;
     }
 
     @PostMapping("/login")
@@ -70,7 +74,10 @@ public class AuthController {
                         "firstName", user.getFirstName(),
                         "lastName", user.getLastName(),
                         "email", user.getEmail(),
-                        "userType", user.getUserType()
+                        "userType", user.getUserType(),
+                        // Source of truth for the frontend, so it stops comparing the email
+                        // against hardcoded demo addresses.
+                        "isDemo", demoGuard.isDemoAccount(user)
                 )
         );
     }

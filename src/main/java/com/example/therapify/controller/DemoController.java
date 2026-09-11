@@ -9,8 +9,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
+/**
+ * Mounted at the root like every other controller (/auth, /usuarios, /appointments). The old
+ * /api/demo/reset path is kept only as a deprecated alias so an already-deployed frontend
+ * doesn't 404 mid-evaluation; delete it once the frontend points at /demo/reset.
+ */
 @RestController
-@RequestMapping("/api/demo")
+@RequestMapping({"/demo", "/api/demo"})
 public class DemoController {
 
     private final DemoService demoService;

@@ -1,5 +1,6 @@
 package com.example.therapify.dtos.UserDTOs;
 import com.example.therapify.enums.Specialty;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -25,5 +26,12 @@ public record UserDetailDTO(
         Double averageRating,
         Integer totalReviews,
         Integer availableSlotsCount,
-        List<LocalDate> nextAvailableDates
+        List<LocalDate> nextAvailableDates,
+
+        /**
+         * Derived from the configured demo emails (see DemoGuard), never persisted, so the
+         * frontend stops comparing the email against hardcoded strings. Explicit @JsonProperty
+         * because Jackson would otherwise strip the "is" prefix and serialize this as "demo".
+         */
+        @JsonProperty("isDemo") boolean isDemo
 ) {}

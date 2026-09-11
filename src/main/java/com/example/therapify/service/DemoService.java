@@ -1,5 +1,6 @@
 package com.example.therapify.service;
 
+import com.example.therapify.config.DemoGuard;
 import com.example.therapify.enums.Specialty;
 import com.example.therapify.enums.UserType;
 import com.example.therapify.model.User;
@@ -7,7 +8,6 @@ import com.example.therapify.repository.AppointmentRepository;
 import com.example.therapify.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,12 +50,8 @@ public class DemoService {
     private final AppointmentRepository appointmentRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserService userService;
+    private final DemoGuard demoGuard;
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    // Configurable (not hardcoded) so ops can point this at whatever demo emails the
-    // frontend actually sends, without a code change/redeploy, if they ever drift.
-    private final String demoDoctorEmail;
-    private final String demoPatientEmail;
 
     @Autowired
     public DemoService(
@@ -63,23 +59,21 @@ public class DemoService {
             AppointmentRepository appointmentRepository,
             PasswordEncoder passwordEncoder,
             UserService userService,
-            @Value("${therapify.demo.doctor-email:demo.terapeuta@therapify.com}") String demoDoctorEmail,
-            @Value("${therapify.demo.patient-email:demo.paciente@therapify.com}") String demoPatientEmail
+            DemoGuard demoGuard
     ) {
         this.userRepository = userRepository;
         this.appointmentRepository = appointmentRepository;
         this.passwordEncoder = passwordEncoder;
         this.userService = userService;
-        this.demoDoctorEmail = demoDoctorEmail;
-        this.demoPatientEmail = demoPatientEmail;
+        this.demoGuard = demoGuard;
     }
 
     /**
-     * Used by DemoController's @PreAuthorize to gate the reset endpoint without hardcoding
-     * the emails a second time in a SpEL string.
+     * Used by DemoController's @PreAuthorize to gate the reset endpoint. Delegates to
+     * {@link DemoGuard}, the single place that knows which emails are demo accounts.
      */
     public boolean isDemoAccount(String email) {
-        return demoDoctorEmail.equalsIgnoreCase(email) || demoPatientEmail.equalsIgnoreCase(email);
+        return demoGuard.isDemoAccount(email);
     }
 
     /**
@@ -88,8 +82,8 @@ public class DemoService {
      */
     @Transactional
     public void ensureDemoAccountsSeeded() {
-        User demoDoctor = userRepository.findByEmail(demoDoctorEmail).orElseGet(this::createDemoDoctor);
-        userRepository.findByEmail(demoPatientEmail).orElseGet(this::createDemoPatient);
+        User demoDoctor = userRepository.findByEmail(demoGuard.doctorEmail()).orElseGet(this::createDemoDoctor);
+        userRepository.findByEmail(demoGuard.patientEmail()).orElseGet(this::createDemoPatient);
 
         if (demoDoctor.getAvailability() == null || demoDoctor.getAvailability().isBlank()) {
             applyDefaultAvailability(demoDoctor);
@@ -104,9 +98,9 @@ public class DemoService {
      */
     @Transactional
     public Map<String, String> resetDemoData() {
-        User demoDoctor = userRepository.findByEmail(demoDoctorEmail)
+        User demoDoctor = userRepository.findByEmail(demoGuard.doctorEmail())
                 .orElseThrow(() -> new IllegalStateException("La cuenta demo del terapeuta no existe"));
-        User demoPatient = userRepository.findByEmail(demoPatientEmail)
+        User demoPatient = userRepository.findByEmail(demoGuard.patientEmail())
                 .orElseThrow(() -> new IllegalStateException("La cuenta demo del paciente no existe"));
 
         LocalDate today = LocalDate.now();
@@ -140,7 +134,7 @@ public class DemoService {
         User doctor = new User();
         doctor.setFirstName("Terapeuta");
         doctor.setLastName("Demo");
-        doctor.setEmail(demoDoctorEmail);
+        doctor.setEmail(demoGuard.doctorEmail());
         doctor.setPassword(passwordEncoder.encode("Demo1234"));
         doctor.setUserType(UserType.DOCTOR);
         doctor.setEnabled(true);
@@ -155,7 +149,7 @@ public class DemoService {
         User patient = new User();
         patient.setFirstName("Paciente");
         patient.setLastName("Demo");
-        patient.setEmail(demoPatientEmail);
+        patient.setEmail(demoGuard.patientEmail());
         patient.setPassword(passwordEncoder.encode("Demo1234"));
         patient.setUserType(UserType.PACIENTE);
         patient.setEnabled(true);
