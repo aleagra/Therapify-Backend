@@ -8,6 +8,7 @@ import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -35,6 +36,28 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     );
     @Transactional
     void deleteByDoctorOrPatient(User doctor, User patient);
+
+    /**
+     * Used by the demo-data reset: clears every appointment booked by the demo patient,
+     * regardless of which doctor it was booked with.
+     */
+    @Modifying(clearAutomatically = true)
+    @Transactional
+    @Query("DELETE FROM Appointment a WHERE a.patient.id = :patientId")
+    int deleteByPatientId(@Param("patientId") Long patientId);
+
+    /**
+     * Used by the demo-data reset: frees up the demo doctor's calendar for the next N days
+     * so evaluators always find open slots, regardless of who booked them.
+     */
+    @Modifying(clearAutomatically = true)
+    @Transactional
+    @Query("DELETE FROM Appointment a WHERE a.doctor.id = :doctorId AND a.date BETWEEN :from AND :to")
+    int deleteByDoctorIdAndDateBetween(
+            @Param("doctorId") Long doctorId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to
+    );
 
     /**
      * Only doctorId/date/startTime are selected (no entity/join) to batch-compute

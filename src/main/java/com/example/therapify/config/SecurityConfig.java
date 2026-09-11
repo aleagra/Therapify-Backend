@@ -83,6 +83,9 @@
 
                             .requestMatchers("/admin/**").hasRole("ADMIN")
 
+                            .requestMatchers(HttpMethod.POST, "/api/demo/reset")
+                            .hasAnyRole("PACIENTE","DOCTOR","ADMIN")
+
                             .anyRequest().authenticated()
                     )
                     .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
