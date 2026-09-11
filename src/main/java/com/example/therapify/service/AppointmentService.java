@@ -156,6 +156,9 @@ public class AppointmentService {
      * instead of both passing the checks. The row is updated in place — the id never changes,
      * so links, reviews and any frontend state keyed by it stay valid.
      *
+     * A CONFIRMED turn moved by anyone other than its professional goes back to PENDING (see
+     * below), because the confirmation applied to the old slot.
+     *
      * Validations run in the documented order; each one maps to a single HTTP status:
      *   1. not yours / doesn't exist      -> 403
      *   2. already COMPLETED / EXPIRED    -> 409 APPOINTMENT_COMPLETED / APPOINTMENT_EXPIRED
@@ -169,7 +172,8 @@ public class AppointmentService {
 
         // 1. Existence and ownership: either participant, or an admin. Both failures answer
         //    the same 403 — see loadAuthorized.
-        Appointment ap = loadAsParticipant(id, "reprogramarlo").appointment();
+        AuthorizedAppointment authorized = loadAsParticipant(id, "reprogramarlo");
+        Appointment ap = authorized.appointment();
 
         // 2. Both terminal states are history, not bookings. EXPIRED would also be caught by
         //    the 24h rule below (it is necessarily in the past), but that would answer
@@ -251,6 +255,16 @@ public class AppointmentService {
         String previousEndTime = ap.getEndTime().toString();
 
         ap.applyReschedule(newDate, newStartTime, newEndTime);
+
+        // CONFIRMED means "the professional accepted *this* slot", and that consent does not
+        // travel to a different one: once anyone else moves the turn, the professional has to
+        // accept it again, or their agenda would show as agreed an hour they never agreed to.
+        // Moved by the professional themselves, it stays confirmed — asking them to re-confirm
+        // their own change would be pointless. Their panel already lists PENDING turns behind
+        // the "Confirmar turno" button, so the turn simply reappears in that queue.
+        if (ap.getStatus() == Status.CONFIRMED && !authorized.requesterIsTheDoctor()) {
+            ap.setStatus(Status.PENDING);
+        }
 
         try {
             // Flushed explicitly, not left to commit: the unique constraint on
@@ -339,6 +353,10 @@ public class AppointmentService {
 
         boolean requesterIsThePatient() {
             return requester.getId().equals(appointment.getPatient().getId());
+        }
+
+        boolean requesterIsTheDoctor() {
+            return requester.getId().equals(appointment.getDoctor().getId());
         }
     }
 

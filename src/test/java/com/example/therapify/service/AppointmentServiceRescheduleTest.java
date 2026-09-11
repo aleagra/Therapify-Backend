@@ -107,11 +107,13 @@ class AppointmentServiceRescheduleTest {
         verify(appointmentRepository, never()).delete(any(Appointment.class));
         verify(appointmentRepository, never()).save(any(Appointment.class));
 
-        // Moved to the new slot, status untouched.
+        // Moved to the new slot. The professional had confirmed the *old* one, and the patient
+        // is the one moving it, so the turn goes back to PENDING for them to accept again.
         assertEquals(NEW_DATE, dto.getDate());
         assertEquals(NEW_START, dto.getStartTime());
         assertEquals(NEW_END, dto.getEndTime());
-        assertEquals("CONFIRMED", dto.getStatus());
+        assertEquals("PENDING", dto.getStatus());
+        assertEquals(Status.PENDING, ap.getStatus());
         assertEquals(LocalDate.of(2026, 9, 25), ap.getDate());
         assertEquals(LocalTime.of(16, 0), ap.getStartTime());
 
@@ -130,8 +132,55 @@ class AppointmentServiceRescheduleTest {
                 eq("Ana Lopez"),
                 eq("2026-09-18"), eq("14:00"), eq("15:00"),
                 eq(NEW_DATE), eq(NEW_START), eq(NEW_END),
-                eq("CONFIRMED")
+                // The status travels to the template, which turns PENDING into an explicit
+                // "requiere tu confirmación nuevamente" line for the professional.
+                eq("PENDING")
         );
+    }
+
+    /**
+     * The professional moving their own confirmed turn keeps it confirmed: asking them to
+     * re-accept a change they made themselves would be noise, and nothing about the agreement
+     * is in doubt.
+     */
+    @Test
+    void theProfessionalMovingTheirOwnTurnKeepsItConfirmed() {
+
+        Appointment ap = existingAppointment(Status.CONFIRMED, 0);
+        authenticateAs(doctor);
+        slotIsFree();
+
+        AppointmentDetailDTO dto = appointmentService.rescheduleAppointment(APPOINTMENT_ID, request());
+
+        assertEquals("CONFIRMED", dto.getStatus());
+        assertEquals(Status.CONFIRMED, ap.getStatus());
+    }
+
+    /** An admin move is not the professional's consent either, so it also needs re-confirming. */
+    @Test
+    void anAdminMoveAlsoSendsTheTurnBackToPending() {
+
+        Appointment ap = existingAppointment(Status.CONFIRMED, 0);
+        authenticateAs(user(99L, "admin@therapify.com", "Admin", "Therapify", UserType.ADMIN));
+        slotIsFree();
+
+        assertEquals("PENDING",
+                appointmentService.rescheduleAppointment(APPOINTMENT_ID, request()).getStatus());
+        assertEquals(Status.PENDING, ap.getStatus());
+    }
+
+    /** A turn that was never confirmed has nothing to lose: it stays PENDING. */
+    @Test
+    void movingAPendingTurnLeavesItPending() {
+
+        Appointment ap = existingAppointment(Status.PENDING, 0);
+        authenticateAs(patient);
+        slotIsFree();
+
+        assertEquals("PENDING",
+                appointmentService.rescheduleAppointment(APPOINTMENT_ID, request()).getStatus());
+        assertEquals(Status.PENDING, ap.getStatus());
+        assertEquals(1, ap.getRescheduleCount());
     }
 
     @Test

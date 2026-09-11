@@ -179,12 +179,21 @@ public class EmailService {
                 "Estado: " + status + "\n\n" +
                 "Gracias por confiar en Therapify.";
 
+        // A turn that came back to PENDING needs the professional to accept the new slot, and
+        // the mail is the only place they may notice before opening the panel — so it says so
+        // instead of just reporting a status code at them.
+        String reconfirmationNotice = "PENDING".equals(status)
+                ? "Requiere tu confirmación nuevamente: el horario cambió después de que lo "
+                        + "confirmaste.\n\n"
+                : "";
+
         String textForDoctor = "Hola Dr/a. " + doctorName + ",\n\n" +
                 "Un paciente reprogramó un turno de tu agenda.\n\n" +
                 "Paciente: " + patientName + "\n\n" +
                 "Horario anterior: " + previousDate + " de " + previousStartTime + " a " + previousEndTime + "\n" +
                 "Nuevo horario: " + newDate + " de " + newStartTime + " a " + newEndTime + "\n\n" +
                 "Estado: " + status + "\n\n" +
+                reconfirmationNotice +
                 "Revisalo desde tu panel.";
 
         sendWebhookEmail(patientEmail, subject, textForPatient);
