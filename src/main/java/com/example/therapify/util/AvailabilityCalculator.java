@@ -83,6 +83,32 @@ public final class AvailabilityCalculator {
         return date + "T" + time;
     }
 
+    /**
+     * Whether a concrete (date, time) falls on a slot the doctor's weekly template actually
+     * offers — ignoring bookings. Used by the reschedule flow to reject a move to an hour the
+     * professional never works, reusing the same day-name normalisation (English or Spanish
+     * keys) the availability expansion above relies on.
+     */
+    public static boolean isSlotInWeeklyTemplate(
+            Map<String, List<String>> weeklyAvailability,
+            LocalDate date,
+            LocalTime time
+    ) {
+        if (weeklyAvailability == null || weeklyAvailability.isEmpty()) return false;
+
+        Map<String, List<String>> normalized = new HashMap<>();
+        weeklyAvailability.forEach((day, slots) -> {
+            if (day != null) {
+                normalized.put(day.trim().toUpperCase(Locale.ROOT), slots);
+            }
+        });
+
+        List<String> daySlots = slotsForDay(normalized, date.getDayOfWeek());
+        if (daySlots == null || daySlots.isEmpty()) return false;
+
+        return daySlots.stream().anyMatch(rawSlot -> time.equals(parseTime(rawSlot)));
+    }
+
     private static List<String> slotsForDay(Map<String, List<String>> normalizedAvailability, DayOfWeek dayOfWeek) {
         List<String> byEnglishName = normalizedAvailability.get(dayOfWeek.name());
         if (byEnglishName != null) return byEnglishName;

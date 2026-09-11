@@ -14,7 +14,19 @@ public class GlobalExceptionHandler {
         Map<String, String> respuesta = new HashMap<>();
         respuesta.put("error", "Turno no disponible");
         respuesta.put("mensaje", ex.getMessage());
+        // Additive: "error"/"mensaje" keep the exact shape the frontend already handles on
+        // POST /appointments, and "code" lets it tell the reschedule 409s apart.
+        respuesta.put("code", ex.getCode().name());
         return new ResponseEntity<>(respuesta, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(InvalidAppointmentException.class)
+    public ResponseEntity<Map<String, String>> handleInvalidAppointmentException(InvalidAppointmentException ex) {
+        Map<String, String> respuesta = new HashMap<>();
+        respuesta.put("error", "Turno inválido");
+        respuesta.put("mensaje", ex.getMessage());
+        respuesta.put("code", ex.getCode().name());
+        return new ResponseEntity<>(respuesta, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(ReviewNotFoundException.class)

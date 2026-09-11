@@ -7,6 +7,8 @@ import com.example.therapify.model.User;
 import com.example.therapify.repository.AppointmentRepository;
 import com.example.therapify.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,8 @@ import java.util.Map;
  */
 @Service
 public class DemoService {
+
+    private static final Logger log = LoggerFactory.getLogger(DemoService.class);
 
     private static final int RESET_WINDOW_DAYS = 7;
 
@@ -112,11 +116,27 @@ public class DemoService {
         // 2. Libera la agenda del terapeuta demo en los próximos 7 días.
         appointmentRepository.deleteByDoctorIdAndDateBetween(demoDoctor.getId(), today, windowEnd);
 
-        // 3. Restablece la plantilla semanal de disponibilidad por si un evaluador la editó.
+        // 3. Borra el cementerio: los turnos ya pasados de las dos cuentas demo, en ambos
+        //    roles. La cuenta es compartida entre evaluadores, así que cada persona que probó
+        //    la demo dejó turnos que con el tiempo cayeron al pasado y quedaban ahí para
+        //    siempre; los dos borrados de arriba solo cubren hoy y los 7 días siguientes.
+        int pasados = appointmentRepository.deletePastAppointmentsForUsers(
+                List.of(demoDoctor.getId(), demoPatient.getId()), today);
+
+        // 4. Deja el contador de reprogramaciones en 0. Los dos borrados de arriba se llevan
+        //    casi todas las filas (y una fila nueva nace en 0), pero los turnos del terapeuta
+        //    demo con pacientes reales fuera de la ventana de 7 días sobreviven: si alguno
+        //    quedó con el límite agotado, el próximo evaluador no podría reprogramarlo.
+        appointmentRepository.resetRescheduleCountForDemoAccounts(
+                demoDoctor.getId(), demoPatient.getId());
+
+        // 5. Restablece la plantilla semanal de disponibilidad por si un evaluador la editó.
         applyDefaultAvailability(demoDoctor);
         userRepository.save(demoDoctor);
 
         userService.evictDoctorCaches(demoDoctor.getId());
+
+        log.info("Reset demo: {} turno(s) pasados eliminados de las cuentas demo.", pasados);
 
         return Map.of("message", "Datos de prueba restablecidos correctamente");
     }

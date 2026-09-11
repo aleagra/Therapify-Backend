@@ -9,6 +9,7 @@ public class AppointmentDetailDTO {
     private String endTime;
     private String status;
     private String createdAt;
+    private int rescheduleCount;
 
     public Long getId() {
         return id;
@@ -72,5 +73,13 @@ public class AppointmentDetailDTO {
 
     public void setCreatedAt(String createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public int getRescheduleCount() {
+        return rescheduleCount;
+    }
+
+    public void setRescheduleCount(int rescheduleCount) {
+        this.rescheduleCount = rescheduleCount;
     }
 }

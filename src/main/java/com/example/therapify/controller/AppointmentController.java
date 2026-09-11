@@ -3,6 +3,7 @@ package com.example.therapify.controller;
 import com.example.therapify.dtos.AppointmentDTOs.AppointmentDetailDTO;
 import com.example.therapify.dtos.AppointmentDTOs.AppointmentListDTO;
 import com.example.therapify.dtos.AppointmentDTOs.AppointmentRequestDTO;
+import com.example.therapify.dtos.AppointmentDTOs.AppointmentRescheduleRequestDTO;
 import com.example.therapify.enums.Status;
 import com.example.therapify.service.AppointmentService;
 import com.example.therapify.service.AppointmentService.AppointmentTimeFilter;
@@ -52,7 +53,13 @@ public class AppointmentController {
         );
     }
 
-    @PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")
+    /**
+     * Cancels a turn. PACIENTE is in the list because cancelling is the patient's own action —
+     * the "Cancelar" button lives on their view of the appointment, and without the role here
+     * every patient cancellation came back 403 while the booking screen promised they could
+     * cancel. Which of the three roles may touch *this* appointment is decided by the service.
+     */
+    @PreAuthorize("hasAnyRole('PACIENTE','DOCTOR','ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Boolean> deleteAppointment(@PathVariable Long id) {
         boolean deleted = appointmentService.deleteAppointment(id);
@@ -71,7 +78,29 @@ public class AppointmentController {
         return ResponseEntity.ok(appointments);
     }
 
-    @PreAuthorize("hasAnyRole('DOCTOR')")
+    /**
+     * Moves an existing turn to another slot of the same professional's calendar.
+     *
+     * Separate from the generic PATCH below: that one is a partial field update (today only
+     * status, and only the appointment's own professional), while this is an atomic slot swap
+     * with its own rules. Open to the patient who owns the turn, its professional, and admins —
+     * the service is what decides which of the three the caller actually is.
+     */
+    @PreAuthorize("hasAnyRole('PACIENTE','DOCTOR','ADMIN')")
+    @PatchMapping("/{id}/reschedule")
+    public ResponseEntity<AppointmentDetailDTO> rescheduleAppointment(
+            @PathVariable Long id,
+            @RequestBody AppointmentRescheduleRequestDTO dto
+    ) {
+        return ResponseEntity.ok(appointmentService.rescheduleAppointment(id, dto));
+    }
+
+    /**
+     * Status updates are the professional's call (plus admins); the service additionally
+     * requires the caller to be *this* appointment's professional, and the target status to be
+     * reachable from the current one.
+     */
+    @PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")
     @PatchMapping("/{id}")
     public ResponseEntity<AppointmentDetailDTO> updateAppointmentStatus(
             @PathVariable Long id,

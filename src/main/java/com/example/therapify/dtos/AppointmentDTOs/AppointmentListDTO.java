@@ -12,6 +12,15 @@ public class AppointmentListDTO {
     private String doctorSpecialty;
     private String patientName;
     private String createdAt;
+    private int rescheduleCount;
+
+    public int getRescheduleCount() {
+        return rescheduleCount;
+    }
+
+    public void setRescheduleCount(int rescheduleCount) {
+        this.rescheduleCount = rescheduleCount;
+    }
 
     public String getDoctorSpecialty() {
         return doctorSpecialty;

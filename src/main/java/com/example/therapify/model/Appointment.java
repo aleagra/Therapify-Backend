@@ -43,6 +43,18 @@ public class Appointment {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    /**
+     * How many times this appointment was moved via PATCH /appointments/{id}/reschedule.
+     * Caps the reschedule limit (see AppointmentService.MAX_RESCHEDULES) and gives the doctor
+     * context on how much the slot has already moved.
+     *
+     * columnDefinition carries the DB-side default on purpose: the project runs ddl-auto=update
+     * with no Flyway, and Postgres refuses to add a NOT NULL column to a populated table unless
+     * the ALTER also supplies a default (it backfills existing rows with it).
+     */
+    @Column(name = "reschedule_count", nullable = false, columnDefinition = "integer default 0")
+    private int rescheduleCount = 0;
+
     @ManyToOne(optional = false)
     @JoinColumn(name = "doctor_id")
     @JsonBackReference
@@ -83,6 +95,31 @@ public class Appointment {
     public void setNotes(String notes) { this.notes = notes; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
+
+    public int getRescheduleCount() { return rescheduleCount; }
+    public void setRescheduleCount(int rescheduleCount) { this.rescheduleCount = rescheduleCount; }
+
+    /** Moves the appointment to a new slot in place — same row, same id — and counts the move. */
+    public void applyReschedule(LocalDate newDate, LocalTime newStartTime, LocalTime newEndTime) {
+        this.date = newDate;
+        this.startTime = newStartTime;
+        this.endTime = newEndTime;
+        this.rescheduleCount++;
+    }
+
+    /** Start of the appointment as a single instant-comparable value (used by the 24h rule). */
+    public LocalDateTime startsAt() {
+        return LocalDateTime.of(date, startTime);
+    }
+
+    /**
+     * End of the appointment, as a single instant-comparable value. Same notion of "already
+     * finished" the completion job uses, which spells it out as a split predicate because JPQL
+     * cannot add a DATE and a TIME.
+     */
+    public LocalDateTime endsAt() {
+        return LocalDateTime.of(date, endTime);
+    }
 
     public User getDoctor() { return doctor; }
     public void setDoctor(User doctor) { this.doctor = doctor; }

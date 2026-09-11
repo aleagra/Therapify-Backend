@@ -100,4 +100,94 @@ public class EmailService {
         sendWebhookEmail(patientEmail, subject, textForPatient);
         sendWebhookEmail(doctorEmail, subject, textForDoctor);
     }
+
+    /**
+     * Sent after DELETE /appointments/{id} commits. Cancelling was the only lifecycle event
+     * that notified nobody, so a professional was left waiting for someone who had already
+     * cancelled.
+     *
+     * cancelledByPatient drives the wording because either participant (or an admin) may
+     * cancel: when the patient did it the professional is told who freed the slot, and
+     * otherwise both texts stay neutral rather than claiming something that may not be true.
+     *
+     * Same fire-and-forget contract as the rest of this class — @Async plus the try/catch in
+     * sendWebhookEmail — so a webhook outage cannot turn an already-committed cancellation
+     * into an error response.
+     */
+    @Async
+    public void sendAppointmentCancelled(
+            String patientEmail,
+            String doctorEmail,
+            String patientName,
+            String doctorName,
+            String date,
+            String startTime,
+            String endTime,
+            boolean cancelledByPatient) {
+        String subject = "Turno cancelado - Therapify";
+
+        String textForPatient = "Hola " + patientName + ",\n\n" +
+                (cancelledByPatient
+                        ? "Tu turno fue cancelado correctamente.\n\n"
+                        : "Tu turno fue cancelado.\n\n") +
+                "Doctor: " + doctorName + "\n" +
+                "Fecha: " + date + "\n" +
+                "Horario: " + startTime + " - " + endTime + "\n\n" +
+                "Podés reservar un nuevo turno cuando quieras desde Therapify.";
+
+        String textForDoctor = "Hola Dr/a. " + doctorName + ",\n\n" +
+                (cancelledByPatient
+                        ? "El paciente " + patientName + " canceló un turno de tu agenda.\n\n"
+                        : "Se canceló un turno de tu agenda.\n\n") +
+                "Paciente: " + patientName + "\n" +
+                "Fecha: " + date + "\n" +
+                "Horario: " + startTime + " - " + endTime + "\n\n" +
+                "El horario quedó liberado en tu agenda.";
+
+        sendWebhookEmail(patientEmail, subject, textForPatient);
+        sendWebhookEmail(doctorEmail, subject, textForDoctor);
+    }
+
+    /**
+     * Sent after PATCH /appointments/{id}/reschedule commits. Both mails spell out the old and
+     * the new slot: with only the new one, neither side can tell what actually moved.
+     *
+     * Same fire-and-forget contract as the rest of this class — @Async plus the try/catch inside
+     * sendWebhookEmail mean a webhook failure is logged and dropped, never surfaced to the
+     * caller, so a mail outage can't turn a committed reschedule into an error response.
+     */
+    @Async
+    public void sendAppointmentRescheduled(
+            String patientEmail,
+            String doctorEmail,
+            String patientName,
+            String doctorName,
+            String previousDate,
+            String previousStartTime,
+            String previousEndTime,
+            String newDate,
+            String newStartTime,
+            String newEndTime,
+            String status) {
+        String subject = "Turno reprogramado - Therapify";
+
+        String textForPatient = "Hola " + patientName + ",\n\n" +
+                "Tu turno fue reprogramado correctamente.\n\n" +
+                "Doctor: " + doctorName + "\n\n" +
+                "Horario anterior: " + previousDate + " de " + previousStartTime + " a " + previousEndTime + "\n" +
+                "Nuevo horario: " + newDate + " de " + newStartTime + " a " + newEndTime + "\n\n" +
+                "Estado: " + status + "\n\n" +
+                "Gracias por confiar en Therapify.";
+
+        String textForDoctor = "Hola Dr/a. " + doctorName + ",\n\n" +
+                "Un paciente reprogramó un turno de tu agenda.\n\n" +
+                "Paciente: " + patientName + "\n\n" +
+                "Horario anterior: " + previousDate + " de " + previousStartTime + " a " + previousEndTime + "\n" +
+                "Nuevo horario: " + newDate + " de " + newStartTime + " a " + newEndTime + "\n\n" +
+                "Estado: " + status + "\n\n" +
+                "Revisalo desde tu panel.";
+
+        sendWebhookEmail(patientEmail, subject, textForPatient);
+        sendWebhookEmail(doctorEmail, subject, textForDoctor);
+    }
 }
